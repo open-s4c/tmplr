@@ -1,17 +1,17 @@
-//'usr/bin/env' cc -xc -DSCRIPT -o tmplr.bin "$0" && exec ./tmplr.bin "$@"
+//'usr/bin/env' cc -O2 -xc -DSCRIPT -o tmplr "$0" && exec ./tmplr "$@"
 /*
  * Copyright (C) Huawei Technologies Co., Ltd. 2022-2025. All rights reserved.
  * SPDX-License-Identifier: MIT
  */
+#include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 #include <unistd.h>
-#include <assert.h>
 
 /*******************************************************************************
- * tmplr - a template replacement tool
+ * tmplr v1.1 - a template replacement tool
  *
  * tmplr is a simple tool to achieve a minimum level of genericity in libvsync
  * without resorting to C preprocessor macros.
@@ -70,8 +70,12 @@
  * ## Command line and mapping override
  *
  * tmplr is a CLI program and takes as input a list of files. It provides two
- * flags: -v for verbose output and -D to select a single value for an iteration
- * mapping. For example, -DkeyA=value1. Other values will be ignored.
+ * flags:
+ * - -v to enable verbose output
+ * - -D to select or overwrite a single value or a list of values in an
+ *   iteration mapping. For example,
+ *      -Dkey=value sets key to `value` and other values will be ignored.
+ *      -Dkey="value1;value2" sets key to the list `value1;value2`
  *
  * ## Valid keys and values
  *
@@ -151,11 +155,7 @@ typedef struct {
     const char *msg;
 } err_t;
 
-#define NO_ERROR                                                               \
-    (err_t)                                                                    \
-    {                                                                          \
-        0                                                                      \
-    }
+#define NO_ERROR (err_t){0}
 #define ERROR(m)                                                               \
     (err_t)                                                                    \
     {                                                                          \
@@ -521,21 +521,34 @@ process_block(int i, const int nvars)
     char val[V_BUF_LEN] = {0};
     strcat(val, p->val);
 
-    const char *sval = sticking(p->key);
-    const char *sep  = ";";
-    char *saveptr    = NULL;
-    char *tok        = strtok_r(val, sep, &saveptr);
-    int c            = 0;
+    const char *sep = ";";
+    char *saveptr   = NULL;
+
+    const char *sval_ = sticking(p->key);
+    char *sval        = sval_ ? strdup(sval_) : NULL;
+    char *tok         = strtok_r(val, sep, &saveptr);
+
+    if (sval != NULL) {
+        /* if there are sticking values, ie, from override_map,
+         * discard all other values of tok and only use sval */
+        while (tok)
+            tok = strtok_r(0, sep, &saveptr);
+
+        saveptr = NULL;
+        tok     = strtok_r(sval, sep, &saveptr);
+    }
+
     while (tok) {
         trims(tok, " ");
-        if (sval == NULL || strcmp(sval, tok) == 0) {
-            (void)c;
-            remap(iteration_map, p->key, tok);
-            process_block(i + 1, nvars);
-            unmap(iteration_map, p->key);
-        }
+        remap(iteration_map, p->key, tok);
+        process_block(i + 1, nvars);
+        unmap(iteration_map, p->key);
         tok = strtok_r(0, sep, &saveptr);
     }
+
+    if (sval != NULL)
+        free(sval);
+
     if (i == 0 && (hook = find(block_hooks, "final"))) {
         (void)process_block_line(hook->val);
     }
