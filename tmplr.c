@@ -178,8 +178,8 @@ static char *TMPL_NL;
 static char *TMPL_UPCASE;
 static char *TMPL_HOOK;
 
-
-static void
+/* set prefix of commands. If prefix is NULL, use default TMPL_PREFIX. */
+void
 set_prefix(const char *prefix)
 {
     if (prefix == NULL) {
@@ -190,10 +190,11 @@ set_prefix(const char *prefix)
     struct {
         char **cmd;
         const char *suffix;
-    } cmds[] = {CMD_PAIR(MAP),    CMD_PAIR(BEGIN),  CMD_PAIR(END),
-                CMD_PAIR(MUTE),   CMD_PAIR(UNMUTE), CMD_PAIR(ABORT),
-                CMD_PAIR(SKIP),   CMD_PAIR(DL),     CMD_PAIR(NL),
-                CMD_PAIR(UPCASE), CMD_PAIR(HOOK),   NULL};
+    } cmds[] = {
+        CMD_PAIR(MAP),    CMD_PAIR(BEGIN),  CMD_PAIR(END),  CMD_PAIR(MUTE),
+        CMD_PAIR(UNMUTE), CMD_PAIR(ABORT),  CMD_PAIR(SKIP), CMD_PAIR(DL),
+        CMD_PAIR(NL),     CMD_PAIR(UPCASE), CMD_PAIR(HOOK), {NULL, NULL},
+    };
 
     for (int i = 0; cmds[i].cmd != NULL; i++) {
         const char *suffix = cmds[i].suffix;

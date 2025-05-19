@@ -39,9 +39,16 @@ iteration, `key=val1`, in the second iteration, the mapping is `key=val2`.
 ## Command line and mapping override
 
 `tmplr` takes a list of files as input and writes the expanded result to
-the standard output. It provides two flags: `-v` for verbose output and
-`-D` to select a single value for an iteration mapping. For example,
-`-DkeyA=value1`. Other values will be ignored.
+the standard output. It provides the following flags:
+- `-v` for verbose output and
+- `-D` to select a single value for an iteration mapping. For example,
+  - `-DkeyA=value1`. Other values will be ignored.
+  - `-Dkey="value1;value2"` sets key to the list `value1;value2`
+- `-P` change command prefix which defaults to `_tmpl`, eg, `-PTEMPLATE`
+  assumes commands of the form TEMPLATE_begin, TEMPLATE_end, etc.
+- `-i` takes input from stdin in addition to file names. stdin is the last
+  input to be processed.
+
 
 ## Valid keys and values
 
