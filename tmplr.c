@@ -13,33 +13,33 @@
 /*******************************************************************************
  * tmplr v1.1 - a template replacement tool
  *
- * tmplr is a simple tool to achieve a minimum level of genericity in libvsync
- * without resorting to C preprocessor macros.
+ * tmplr is a simple tool to achieve a minimum level of genericity without
+ * resorting to C preprocessor macros.
  *
  * ## Template blocks
  *
  * tmplr reads input files and replaces mappings in template blocks. Template
- * blocks are marked with TMPL_BEGIN/TMPL_END commands (see "Template commands"
- * below).
+ * blocks are marked with _tmpl_begin/_tmpl_end commands (see "Template
+ * commands" below).
  *
  * For example:
  *
- *     TMPL_BEGIN(key=value)
+ *     _tmpl_begin(key=value)
  *     The following word, key, will be replaced by value.
- *     TMPL_END
+ *     _tmpl_end
  *
  * ## Template mappings
  *
- * The mappings given to TMPL_BEGIN are called *template mappings*.
+ * The mappings given to _tmpl_begin are called *template mappings*.
  *
  * Iteration mappings may take a single value as in keyA = value1 or multiple
  * values as in keyA = [[value1; value2]]. The list of values is separated by
  * semicolumn and optionally sorrounded by [[ ]]. The list of template mappings
  * is separated by commas, for example:
  *
- *     TMPL_BEGIN(keyA=[[val1;val2]], keyB=[[val3;val4]])
+ *     _tmpl_begin(keyA=[[val1;val2]], keyB=[[val3;val4]])
  *     ...
- *     TMPL_END
+ *     _tmpl_end
  *
  * ## Block iterations
  *
@@ -49,13 +49,13 @@
  *
  * Consider this block example:
  *
- *     TMPL_BEGIN(key=[[val1;val2]])
+ *     _tmpl_begin(key=[[val1;val2]])
  *     Key --> key
- *     TMPL_END
+ *     _tmpl_end
  *
- * The template mapping consists of key=[[val1;val2]]. In the first iteration of
- * the block, the iteration mapping is key=val1, in the second iteration, the
- * mapping is key=val2.
+ * The template mapping consists of key=[[val1;val2]]. In the first iteration
+ * of the block, the iteration mapping is key=val1, in the second iteration,
+ * the mapping is key=val2.
  *
  * ## Persistent mappings
  *
@@ -69,13 +69,17 @@
  *
  * ## Command line and mapping override
  *
- * tmplr is a CLI program and takes as input a list of files. It provides two
+ * tmplr is a CLI program and takes as input a list of files. It provides a few
  * flags:
  * - -v to enable verbose output
  * - -D to select or overwrite a single value or a list of values in an
  *   iteration mapping. For example,
  *      -Dkey=value sets key to `value` and other values will be ignored.
  *      -Dkey="value1;value2" sets key to the list `value1;value2`
+ * - -P to set a prefix to commands differnt than `_tmpl`, eg, -PTEMPLATE
+ *   assumes commands of the form TEMPLATE_begin, TEMPLATE_end, etc.
+ * - -i takes input from stdin in addition to file names. stdin is the last
+ *   input to be processed.
  *
  * ## Valid keys and values
  *
@@ -103,48 +107,114 @@
  ******************************************************************************/
 
 /*******************************************************************************
- * Template commands
+ * Logging
  ******************************************************************************/
 
-#define TMPL_MAP    "_tmpl_map"
-#define TMPL_BEGIN  "_tmpl_begin"
-#define TMPL_END    "_tmpl_end"
-#define TMPL_MUTE   "_tmpl_mute"
-#define TMPL_UNMUTE "_tmpl_unmute"
-
-#define TMPL_ABORT  "_tmpl_abort"
-#define TMPL_SKIP   "_tmpl_skip"
-#define TMPL_DL     "_tmpl_dl"
-#define TMPL_NL     "_tmpl_nl"
-#define TMPL_UPCASE "_tmpl_upcase"
-#define TMPL_HOOK   "_tmpl_hook"
+static bool _verbose;
+#define debugf(fmt, ...)                                                       \
+    do {                                                                       \
+        if (_verbose)                                                          \
+            printf("// " fmt, ##__VA_ARGS__);                                  \
+    } while (0)
 
 /*******************************************************************************
  * Maximum line lengths and buffer sizes
  ******************************************************************************/
 
 /* maximum length of a line */
-#define MAX_SLEN 256
+#ifndef MAX_SLEN
+    #define MAX_SLEN 256
+#endif
 /* maximum number of lines in a block */
-#define MAX_BLEN 100
+#ifndef MAX_BLEN
+    #define MAX_BLEN 100
+#endif
 /* maximum number of keys */
-#define MAX_KEYS 1024
+#ifndef MAX_KEYS
+    #define MAX_KEYS 1024
+#endif
 /* maximum length of a value */
-#define MAX_VLEN 256
+#ifndef MAX_VLEN
+    #define MAX_VLEN 256
+#endif
 /* Buffer to hold the value */
 #define V_BUF_LEN ((MAX_VLEN) + 1)
 /* maximum length of a key */
-#define MAX_KLEN 64
+#ifndef MAX_KLEN
+    #define MAX_KLEN 64
+#endif
 /* Buffer to hold the key */
 #define K_BUF_LEN ((MAX_KLEN) + 1)
 /* maximum number of replacements per line */
-#define MAX_APPLY 32
+#ifndef MAX_APPLY
+    #define MAX_APPLY 32
+#endif
+
+/*******************************************************************************
+ * Template commands
+ ******************************************************************************/
+#define TMPL_PREFIX        "_tmpl"
+#define TMPL_SUFFIX_MAP    "_map"
+#define TMPL_SUFFIX_BEGIN  "_begin("
+#define TMPL_SUFFIX_END    "_end"
+#define TMPL_SUFFIX_MUTE   "_mute"
+#define TMPL_SUFFIX_UNMUTE "_unmute"
+#define TMPL_SUFFIX_ABORT  "_abort"
+#define TMPL_SUFFIX_SKIP   "_skip"
+#define TMPL_SUFFIX_DL     "_dl"
+#define TMPL_SUFFIX_NL     "_nl"
+#define TMPL_SUFFIX_UPCASE "_upcase"
+#define TMPL_SUFFIX_HOOK   "_hook"
+
+static char *TMPL_MAP;
+static char *TMPL_BEGIN;
+static char *TMPL_END;
+static char *TMPL_MUTE;
+static char *TMPL_UNMUTE;
+static char *TMPL_ABORT;
+static char *TMPL_SKIP;
+static char *TMPL_DL;
+static char *TMPL_NL;
+static char *TMPL_UPCASE;
+static char *TMPL_HOOK;
+
+
+static void
+set_prefix(const char *prefix)
+{
+    if (prefix == NULL) {
+        prefix = TMPL_PREFIX;
+    }
+
+#define CMD_PAIR(X) {.cmd = &TMPL_##X, .suffix = TMPL_SUFFIX_##X}
+    struct {
+        char **cmd;
+        const char *suffix;
+    } cmds[] = {CMD_PAIR(MAP),    CMD_PAIR(BEGIN),  CMD_PAIR(END),
+                CMD_PAIR(MUTE),   CMD_PAIR(UNMUTE), CMD_PAIR(ABORT),
+                CMD_PAIR(SKIP),   CMD_PAIR(DL),     CMD_PAIR(NL),
+                CMD_PAIR(UPCASE), CMD_PAIR(HOOK),   NULL};
+
+    for (int i = 0; cmds[i].cmd != NULL; i++) {
+        const char *suffix = cmds[i].suffix;
+        *cmds[i].cmd       = calloc(strlen(suffix) + strlen(prefix) + 1, 1);
+        if (*cmds[i].cmd == NULL) {
+            fprintf(stderr, "could not allocate command");
+            exit(EXIT_FAILURE);
+        }
+        strcat(*cmds[i].cmd, prefix);
+        strcat(*cmds[i].cmd, suffix);
+        debugf("[CMD] %s\n", *cmds[i].cmd);
+    }
+}
+
 
 /*******************************************************************************
  * Type definitions
  ******************************************************************************/
 
-/* pair_t is a key-value pair. Key and value are 0-terminated char arrays. */
+/* pair_t is a key-value pair. Key and value are 0-terminated char arrays.
+ */
 typedef struct {
     char key[K_BUF_LEN];
     char val[V_BUF_LEN];
@@ -162,17 +232,6 @@ typedef struct {
         .msg = m                                                               \
     }
 #define IS_ERROR(err) (err).msg != NULL
-
-/*******************************************************************************
- * Logging
- ******************************************************************************/
-
-bool _verbose;
-#define debugf(fmt, ...)                                                       \
-    do {                                                                       \
-        if (_verbose)                                                          \
-            printf("// " fmt, ##__VA_ARGS__);                                  \
-    } while (0)
 
 /*******************************************************************************
  * String functions
@@ -199,7 +258,6 @@ trims(char *s, char *chars)
         trim(s, *c);
 }
 
-
 /*******************************************************************************
  * Mappings
  ******************************************************************************/
@@ -218,8 +276,9 @@ pair_t override_map[MAX_KEYS];
 
 /* iteration mappings: key -> value
  *
- * These are the single values of the template mappings, potentially overriden
- * by override mappings. They are set at each iteration of a template block.
+ * These are the single values of the template mappings, potentially
+ * overriden by override mappings. They are set at each iteration of a
+ * template block.
  *
  * They precede the persistent mappings.
  */
@@ -341,7 +400,12 @@ again:
     strncat(key, start, MAX_KLEN);
 
     char val[V_BUF_LEN] = {0};
-    strncat(val, values, strlen(values));
+    size_t src_len      = strlen(values);
+    size_t dst_len      = V_BUF_LEN - 1;
+    if (src_len < dst_len)
+        strcat(val, values);
+    else
+        strncat(val, values, dst_len);
     trims(val, " []");
 
     remap(template_map, key, val);
@@ -586,7 +650,7 @@ again:
                 fflush(stdout);
                 abort();
             }
-            if (!muted && strstr(line, TMPL_BEGIN "(")) {
+            if (!muted && strstr(line, TMPL_BEGIN)) {
                 S = BLOCK_BEGIN;
                 goto again;
             }
@@ -698,11 +762,8 @@ again:
  ******************************************************************************/
 
 void
-process_file(const char *fn)
+process_fp(FILE *fp, const char *fn)
 {
-    FILE *fp = fopen(fn, "r+");
-    assert(fp);
-
     char *line = NULL;
     size_t len = 0;
     ssize_t read;
@@ -723,7 +784,13 @@ process_file(const char *fn)
     }
     if (line)
         free(line);
-
+}
+void
+process_file(const char *fn)
+{
+    FILE *fp = fopen(fn, "r+");
+    assert(fp);
+    process_fp(fp, fn);
     fclose(fp);
 }
 
@@ -735,18 +802,26 @@ process_file(const char *fn)
 int
 main(int argc, char *argv[])
 {
+    bool read_stdin    = false;
+    const char *prefix = NULL;
     debugf("vatomic generator\n");
     int c;
     char *k;
-    while ((c = getopt(argc, argv, "hvD:")) != -1) {
+    while ((c = getopt(argc, argv, "hivP:D:")) != -1) {
         switch (c) {
             case 'D':
                 k    = strstr(optarg, "=");
                 *k++ = '\0';
                 remap(override_map, optarg, k);
                 break;
+            case 'P':
+                prefix = strdup(optarg);
+                break;
             case 'v':
                 _verbose = true;
+                break;
+            case 'i':
+                read_stdin = true;
                 break;
             case 'h':
                 printf("tmplr - a simple templating tool\n\n");
@@ -756,6 +831,7 @@ main(int argc, char *argv[])
                 printf(
                     "\t-Dkey=value   override template map assignement of "
                     "key\n");
+                printf("\t-i            read stdin\n");
                 exit(0);
             case '?':
                 printf("error");
@@ -764,8 +840,13 @@ main(int argc, char *argv[])
                 break;
         }
     }
+    set_prefix(prefix);
+
     for (int i = optind; i < argc; i++)
         process_file(argv[i]);
+    if (read_stdin)
+        process_fp(stdin, "<stdin>");
+
 
 // if started as script, remove tmplr file
 #ifdef SCRIPT
