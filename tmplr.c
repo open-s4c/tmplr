@@ -21,27 +21,26 @@
  * ## Template blocks
  *
  * tmplr reads input files and replaces mappings in template blocks. Template
- * blocks are marked with _tmpl_begin/_tmpl_end commands (see "Template
- * commands" below).
+ * blocks are marked with $_begin/$_end commands, see "Template commands" below.
  *
  * For example:
  *
- *     _tmpl_begin(key=value)
+ *     $_begin(key=value)
  *     The following word, key, will be replaced by value.
- *     _tmpl_end
+ *     $_end
  *
  * ## Template mappings
  *
- * The mappings given to _tmpl_begin are called *template mappings*.
+ * The mappings given to $_begin are called *template mappings*.
  *
  * Iteration mappings may take a single value as in keyA = value1 or multiple
  * values as in keyA = [[value1; value2]]. The list of values is separated by
  * semicolumn and optionally sorrounded by [[ ]]. The list of template mappings
  * is separated by commas, for example:
  *
- *     _tmpl_begin(keyA=[[val1;val2]], keyB=[[val3;val4]])
+ *     $_begin(keyA=[[val1;val2]], keyB=[[val3;val4]])
  *     ...
- *     _tmpl_end
+ *     $_end
  *
  * ## Block iterations
  *
@@ -51,9 +50,9 @@
  *
  * Consider this block example:
  *
- *     _tmpl_begin(key=[[val1;val2]])
+ *     $_begin(key=[[val1;val2]])
  *     Key --> key
- *     _tmpl_end
+ *     $_end
  *
  * The template mapping consists of key=[[val1;val2]]. In the first iteration
  * of the block, the iteration mapping is key=val1, in the second iteration,
@@ -78,7 +77,7 @@
  *   iteration mapping. For example,
  *      -Dkey=value sets key to `value` and other values will be ignored.
  *      -Dkey="value1;value2" sets key to the list `value1;value2`
- * - -P to set a prefix to commands differnt than `_tmpl`, eg, -PTEMPLATE
+ * - -P to set a prefix to commands differnt than `$`, eg, -PTEMPLATE
  *   assumes commands of the form TEMPLATE_begin, TEMPLATE_end, etc.
  * - -i takes input from stdin in addition to file names. stdin is the last
  *   input to be processed.
@@ -155,7 +154,7 @@ static bool _verbose;
 /*******************************************************************************
  * Template commands
  ******************************************************************************/
-#define TMPL_PREFIX        "_tmpl"
+#define TMPL_PREFIX        "$"
 #define TMPL_SUFFIX_MAP    "_map"
 #define TMPL_SUFFIX_BEGIN  "_begin("
 #define TMPL_SUFFIX_END    "_end"
@@ -877,7 +876,7 @@ main(int argc, char *argv[])
                 printf("Flags:\n");
                 printf("\t-v            verbose\n");
                 printf("\t-Dkey=value   override template map assignement\n");
-                printf("\t-P PREFIX     use PREFIX instead of _tmpl prefix\n");
+                printf("\t-P PREFIX     use PREFIX instead of $ prefix\n");
                 printf("\t-i            read stdin\n");
                 printf("\t-s            swap iterator and item separators\n");
                 exit(0);
