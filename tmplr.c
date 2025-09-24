@@ -1,6 +1,6 @@
 //'usr/bin/env' cc -O2 -xc -DSCRIPT -o tmplr "$0" && exec ./tmplr "$@"
 /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2022-2025. All rights reserved.
+ * Copyright (C) 2022-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: MIT
  */
 #include <assert.h>
@@ -124,7 +124,7 @@ static bool _verbose;
 
 /* maximum length of a line */
 #ifndef MAX_SLEN
-    #define MAX_SLEN 256
+    #define MAX_SLEN 256UL
 #endif
 /* maximum number of lines in a block */
 #ifndef MAX_BLEN
@@ -231,11 +231,7 @@ typedef struct {
     const char *msg;
 } err_t;
 
-#define NO_ERROR                                                               \
-    (err_t)                                                                    \
-    {                                                                          \
-        0                                                                      \
-    }
+#define NO_ERROR (err_t){0}
 #define ERROR(m)                                                               \
     (err_t)                                                                    \
     {                                                                          \
@@ -482,6 +478,13 @@ line_apply(char *line, const char *key, const char *val)
     /* make space for value */
     if (!is_nl)
         debugf("\tBEFORE: %s", line);
+
+    if (cur - line + vlen + slen > MAX_SLEN) {
+        fflush(stdout);
+        fprintf(stderr, "error: cannot apply beyong line limit (%lu)\n",
+                MAX_SLEN);
+        exit(EXIT_FAILURE);
+    }
     memmove(cur + vlen, cur + klen, slen);
     memcpy(cur, val, vlen);
     if (!is_nl)
@@ -518,7 +521,14 @@ again:
         if ((cur = strstr(buf, TMPL_UNDO))) {
             size_t skip = strlen(TMPL_UNDO);
             size_t len  = strlen(cur);
-            memmove(buf, cur + skip, len - skip + 1);
+            size_t rlen = len - skip + 1;
+            if (rlen > MAX_SLEN) {
+                fflush(stdout);
+                fprintf(stderr, "error: line longer than limit (%lu > %lu)\n",
+                        rlen, MAX_SLEN);
+                exit(EXIT_FAILURE);
+            }
+            memmove(buf, cur + skip, rlen);
         }
 
         const pair_t *pi = iteration_map + i;
@@ -562,7 +572,7 @@ end:
 
     /* output and return */
     printf("%s", buf);
-    assert(cnt < MAX_APPLY);
+    assert(cnt <= MAX_APPLY);
     return true;
 }
 
@@ -684,7 +694,7 @@ again:
         case TEXT:
             if (!muted && strstr(line, TMPL_ABORT)) {
                 fflush(stdout);
-                abort();
+                exit(EXIT_FAILURE);
             }
             if (!muted && strstr(line, TMPL_BEGIN)) {
                 S = BLOCK_BEGIN;
@@ -810,7 +820,7 @@ process_fp(FILE *fp, const char *fn)
         err = process_line(line);
         if (IS_ERROR(err)) {
             fprintf(stderr, "%s:%d: error: %s\n", fn, i + 1, err.msg);
-            abort();
+            exit(EXIT_FAILURE);
         }
         if (line) {
             free(line);
