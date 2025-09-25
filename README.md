@@ -72,3 +72,14 @@ We are aware of similar, more powerful tools such as Jinja, Mustache and M4.
 - simplicity: as simple and maintainable as possible
 - dependency freedom: no additonal language which will get deprecated
 - c-syntax transperency: annotation should not interfer with the LSP
+
+# Fuzzing `tmplr` with AFL
+
+After installing AFL, compile `tmplr` with `afl-gcc`:
+
+    CC=afl-gcc make
+
+Then run AFL with the tests in the `test/` directory. Since the tests uses
+`_tmpl` prefix, you have also to pass that argument to `tmplr`.
+
+    afl-fuzz -i test -o results -m256 -- ./tmplr -P _tmpl @@

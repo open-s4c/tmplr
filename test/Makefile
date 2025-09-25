@@ -4,8 +4,7 @@
 ROOTDIR=	..
 TMPLR=		${ROOTDIR}/tmplr
 TESTS!=		ls *.in
-TARGETS!=	echo "${TESTS}" | sed -e 's/\.in/.done/g'
-
+TARGETS!=	echo "${TESTS}" | sed -e 's/\.in/.done/g' -e 's/:/\\:/g'
 
 all: ${TMPLR} ${TARGETS}
 
