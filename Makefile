@@ -1,6 +1,6 @@
 .POSIX:
 
-CFLAGS=-Wall -Werror -O3
+CFLAGS=-Wall -Werror -O3 -std=c99 -D_XOPEN_SOURCE=700
 
 all: tmplr
 clean:
