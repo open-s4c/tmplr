@@ -15,6 +15,7 @@ MANDIR=		${PREFIX}/man/man1
 all: tmplr tmplr.1
 clean:
 	rm -rf tmplr version.h tmplr.1
+	@${MAKE} -C test clean
 
 tmplr: tmplr.c version.h
 	${CC} ${CFLAGS} -o $@ $<
