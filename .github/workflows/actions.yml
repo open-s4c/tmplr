@@ -1,45 +1,38 @@
 name: Build and test tmplr
-on: [push]
-
-env:
-  REGISTRY: ghcr.io
+on:
+  - push
+  - pull_request
 
 jobs:
-  build-install:
-    if: true
+  cmake-build:
     strategy:
       matrix:
-        os: [ubuntu-24.04]
-        cfg:
-        - cc: gcc
-          cxx: g++
-        - cc: clang
-          cxx: clang++
+        os: [ubuntu-24.04, ubuntu-22.04]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Configure
-        run: cmake -S. -Bbuild
-             -DCMAKE_INSTALL_PREFIX=/tmp/target
-             -DCMAKE_C_COMPILER=${{ matrix.cfg.cc }}
-             -DCMAKE_CXX_COMPILER=${{ matrix.cfg.cxx }}
-             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        run: cmake -Bbuild
       - name: Build
         run: cmake --build build
-      - name: Test
-        run: make -C test
-      - name: Install
-        run: cmake --install build
 
-  test:
-    runs-on: ubuntu-24.04
+  build-test-install:
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, ubuntu-22.04, macos-15]
+        cc: [gcc, clang]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Build
-        run: make tmplr
+        run: make CC=${{ matrix.cc }}
       - name: Test
-        run: make -C test
+        run: make test
+      - name: Install
+        run: make install PREFIX=target
+      - name: Check installation
+        run: test -f target/bin/tmplr && test -f target/man/man1/tmplr.1
