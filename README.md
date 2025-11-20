@@ -1,9 +1,11 @@
 # `tmplr` - a template replacement tool
 
 `tmplr` is a simple tool to achieve a minimum level of genericity in
-[libvsync][] and other projects without resorting to C preprocessor macros.
+[libvsync][], [Dice][], and other projects without resorting to C preprocessor
+macros.
 
 [libvsync]: https://github.com/open-s4c/libvsync
+[Dice]: https://github.com/open-s4c/dice
 
 ## Quick Installation
 
@@ -17,21 +19,21 @@ You can use `tmplr` as a script as follows:
 ## Template
 
 `tmplr` reads input files and replaces mappings in template blocks. Template
-blocks are marked with `__tmpl_begin` and `__tmpl_end` commands.
+blocks are marked with `$_begin` and `$_end` commands.
 
 For example:
 
-    __tmpl_begin(key=value)
+    $_begin(key=value)
     The following word, key, will be replaced by value.
-    __tmpl_end
+    $_end
 
 Iteration mappings may take a single value as in `key=value1` or multiple
 values as in `key=[[value1; value2]]`. The list of values is separated by
 semicolumn and optionally sorrounded by `[[` and `]]`.  Consider the example:
 
-    __tmpl_begin(key=[[val1;val2]])
+    $_begin(key=[[val1;val2]])
     Key --> key
-    __tmpl_end
+    $_end
 
 The template expansion will generate one block for each iteration. In the first
 iteration, `key=val1`, in the second iteration, the mapping is `key=val2`.

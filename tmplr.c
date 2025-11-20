@@ -1,4 +1,3 @@
-//'usr/bin/env' cc -O2 -xc -DSCRIPT -o tmplr "$0" && exec ./tmplr "$@"
 /*
  * Copyright (C) 2022-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: MIT
@@ -9,8 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#define VERSION "1.2"
+#include "version.h"
 
 /*******************************************************************************
  * tmplr - a template replacement tool
@@ -191,7 +189,10 @@ set_prefix(const char *prefix)
         prefix = TMPL_PREFIX;
     }
 
-#define CMD_PAIR(X) {.cmd = &TMPL_##X, .suffix = TMPL_SUFFIX_##X}
+#define CMD_PAIR(X)                                                            \
+    {                                                                          \
+        .cmd = &TMPL_##X, .suffix = TMPL_SUFFIX_##X                            \
+    }
     struct {
         char **cmd;
         const char *suffix;
@@ -231,7 +232,11 @@ typedef struct {
     const char *msg;
 } err_t;
 
-#define NO_ERROR (err_t){0}
+#define NO_ERROR                                                               \
+    (err_t)                                                                    \
+    {                                                                          \
+        0                                                                      \
+    }
 #define ERROR(m)                                                               \
     (err_t)                                                                    \
     {                                                                          \
@@ -853,7 +858,7 @@ main(int argc, char *argv[])
     debugf("vatomic generator\n");
     int c;
     char *k;
-    while ((c = getopt(argc, argv, "hisvP:D:")) != -1) {
+    while ((c = getopt(argc, argv, "hisvVP:D:")) != -1) {
         switch (c) {
             case 'D':
                 k    = strstr(optarg, "=");
@@ -863,6 +868,9 @@ main(int argc, char *argv[])
             case 'P':
                 prefix = strdup(optarg);
                 break;
+            case 'V':
+                printf("%s\n", TMPLR_VERSION);
+                exit(0);
             case 'v':
                 _verbose = true;
                 break;
@@ -881,14 +889,16 @@ main(int argc, char *argv[])
                 set_option(OPT_ITER_SEP, ",");
                 break;
             case 'h':
-                printf("tmplr v%s - a simple templating tool\n\n", VERSION);
+                printf("tmplr v%s - a simple templating tool\n\n",
+                       TMPLR_VERSION);
                 printf("Usage:\n\ttmplr [FLAGS] <FILE> [FILE ...]\n\n");
                 printf("Flags:\n");
-                printf("\t-v            verbose\n");
                 printf("\t-Dkey=value   override template map assignement\n");
-                printf("\t-P PREFIX     use PREFIX instead of $ prefix\n");
                 printf("\t-i            read stdin\n");
+                printf("\t-P PREFIX     use PREFIX instead of $ prefix\n");
                 printf("\t-s            swap iterator and item separators\n");
+                printf("\t-v            verbose\n");
+                printf("\t-V            show version\n");
                 exit(0);
             case '?':
                 printf("error");
@@ -904,11 +914,5 @@ main(int argc, char *argv[])
     if (read_stdin)
         process_fp(stdin, "<stdin>");
 
-
-// if started as script, remove tmplr file
-#ifdef SCRIPT
-    return remove(argv[0]);
-#else
     return 0;
-#endif
 }
