@@ -582,7 +582,10 @@ end:
 
     /* output and return */
     printf("%s", buf);
-    assert(cnt <= MAX_APPLY);
+    if (cnt >= MAX_APPLY) {
+        fprintf(stderr, "error: too many replacements (%d)\n", cnt);
+        exit(EXIT_FAILURE);
+    }
     return true;
 }
 
