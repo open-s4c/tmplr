@@ -44,10 +44,9 @@ iteration, `key=val1`, in the second iteration, the mapping is `key=val2`.
 the standard output. It provides the following flags:
 - `-v` for verbose output and
 - `-D` to select a single value for an iteration mapping. For example,
-  - `-DkeyA=value1`. Other values will be ignored.
-  - `-Dkey="value1;value2"` sets key to the list `value1;value2`
-- `-P` change command prefix which defaults to `_tmpl`, eg, `-PTEMPLATE`
-  assumes commands of the form TEMPLATE_begin, TEMPLATE_end, etc.
+  - `-D keyA=value1`. Other values will be ignored.
+  - `-D key="value1;value2"` sets key to the list `value1;value2`
+- `-P TMPL` change command prefix to `TMPL_begin`, `TMPL_end`, etc.
 - `-i` takes input from stdin in addition to file names. stdin is the last
   input to be processed.
 

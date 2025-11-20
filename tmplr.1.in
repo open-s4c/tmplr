@@ -44,14 +44,13 @@ Enable verbose logging to standard output.
 Process standard input after all explicit files have been read.
 .TP
 .BI \-P " prefix"
-Change the command prefix (defaults to
-.BR $ ).
+Change the command prefix.
 For example,
-.B -PTEMPLATE
+.B -P TMPL
 expects directives such as
-.BR TEMPLATE_begin .
+.BR TMPL_begin .
 .TP
-.BI \-D " key = value"
+.BI \-D " key=value"
 Override the values of a mapping defined inside a block. Supplying a single
 value forces that value, while
 .RB \(dq value1;value2 \(dq
