@@ -2,6 +2,11 @@
  * Copyright (C) 2022-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: MIT
  */
+
+#if defined(__linux__) && !defined(_GNU_SOURCE)
+    #define _GNU_SOURCE
+#endif
+
 #include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
