@@ -1,0 +1,106 @@
+.TH TMPLR 1 "__DATE__" "__VERSION__"
+.SH NAME
+tmplr \- minimal template replacement tool
+.SH SYNOPSIS
+.B tmplr
+.RB [ \-v ]
+.RB [ \-i ]
+.RB [ \-P
+.IR prefix ]
+.RB [ \-D
+.IR key = value ]
+.RI [ file ...]
+.SH DESCRIPTION
+.B tmplr
+reads one or more input files (plus optional standard input) and replaces the
+contents of template blocks with concrete values. A template block starts with
+the directive
+.BR $_begin (...)
+and ends with
+.BR $_end .
+Within a block the tool substitutes every mention of a key from the block's
+mapping with the corresponding value.
+.PP
+Blocks may define multiple comma separated mappings, such as
+.RB \(dq $_begin(keyA=[[foo;bar]], keyB=xyz) \(dq .
+If a mapping contains a list
+.RB ( [[ value1 ; value2 ]] ),
+the block is repeated once for every combination and each iteration uses a
+single scalar value (e.g. first
+.I keyA=foo
+then
+.IR keyA=bar ).
+.PP
+Outside template blocks, persistent mappings can be added through
+.BR TMPL_MAP(key,value)
+(or the configured prefix). Persistent mappings are applied after every
+iteration mapping substitution.
+.SH OPTIONS
+.TP
+.B \-v
+Enable verbose logging to standard output.
+.TP
+.B \-i
+Process standard input after all explicit files have been read.
+.TP
+.BI \-P " prefix"
+Change the command prefix (defaults to
+.BR $ ).
+For example,
+.B -PTEMPLATE
+expects directives such as
+.BR TEMPLATE_begin .
+.TP
+.BI \-D " key = value"
+Override the values of a mapping defined inside a block. Supplying a single
+value forces that value, while
+.RB \(dq value1;value2 \(dq
+forces a list of values (the quoting is handled by the shell).
+.SH TEMPLATE COMMANDS
+The default command prefix is
+.BR $ ,
+and the following suffixes are recognized:
+.TP
+.B _begin(...) / _end
+Start or end a template block.
+.TP
+.B _map
+Create a persistent mapping outside template blocks.
+.TP
+.B _mute , _unmute
+Temporarily silence output inside a block.
+.TP
+.B _abort , _skip , _kill , _undo
+Control flow helpers that respectively abort tmplr, skip a block, kill a block,
+or undo the last block emission.
+.TP
+.B _dl , _nl , _upcase , _hook
+Helpers for deleting the rest of the line, inserting a newline, uppercasing the
+next replacement, or invoking a hook command.
+.SH INPUT FORMAT
+Keys may contain any character except newline, parentheses, commas, semicolons,
+or other tmplr commands. Values may not contain parentheses, commas, or
+semicolons. Keys and values are never tokenized, so whitespace is preserved.
+.SH EXAMPLES
+.PP
+.nf
+$_begin(key=[[foo;bar]])
+key is replaced twice.
+$_end
+.fi
+.PP
+Override a mapping from the command line:
+.PP
+.nf
+tmplr -Dkey=baz template.txt
+.fi
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B non\-zero
+An error occurred while parsing input, commands, or mappings.
+.SH SEE ALSO
+Project documentation in
+.IR README.md .

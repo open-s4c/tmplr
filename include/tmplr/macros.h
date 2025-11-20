@@ -12,18 +12,18 @@
  * the form [[val1;val2;val3]] or single values. For example:
  *
  * ```c
- * _tmpl_begin(KEY1 = VALUE1, KEY2 = [[VALUE2; VALUE3]]);
+ * $_begin(KEY1 = VALUE1, KEY2 = [[VALUE2; VALUE3]]);
  * KEY1 = KEY2;
- * _tmpl_end;
+ * $_end;
  * ```
  */
 
-#define _tmpl_begin(...)
+#define $_begin(...)
 
 /**
  * Marks the end of a template block.
  */
-#define _tmpl_end
+#define $_end
 
 /**
  * Adds a string to begin or end hook.
@@ -32,53 +32,53 @@
  *
  * The string argument may contain commas but no parenthesis.
  */
-#define _tmpl_hook(HOOK, ...)
+#define $_hook(HOOK, ...)
 
 /**
  * Stops tmplr processing and output.
  *
- * Until the matching _tmpl_unmute, all text is discarded and all tmplr command
+ * Until the matching $_unmute, all text is discarded and all tmplr command
  * ignored. A muted-block is useful to add includes that help LSP servers.
  */
-#define _tmpl_mute
+#define $_mute
 
 /**
  * Restarts tmplr processing output.
  */
-#define _tmpl_mute
+#define $_mute
 
 /**
  *  Maps a key K to a value which may contain commas
  */
-#define _tmpl_map(K, ...)
+#define $_map(K, ...)
 
 /**
  * Skips template block iteration.
  *
- * @note This can only be called within _tmpl_begin and _tmpl_end.
+ * @note This can only be called within $_begin and $_end.
  */
-#define _tmpl_skip
+#define $_skip
 
 /**
  * Deletes the line from the template output.
  */
-#define _tmpl_dl
+#define $_dl
 
 /**
  * Adds a new line.
  */
-#define _tmpl_nl
+#define $_nl
 
 /**
  * Aborts tmplr execution and exits with error code 1.
  */
-#define _tmpl_abort
+#define $_abort
 
 /**
  * Makes content uppercase.
  *
- * @note This can only be called within _tmpl_begin and _tmpl_end.
+ * @note This can only be called within $_begin and $_end.
  */
-#define _tmpl_upcase(...)
+#define $_upcase(...)
 
 #endif
