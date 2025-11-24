@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2022-2025 Huawei Technologies Co., Ltd.
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: 0BSD
  *
  * tmplr - a template replacement tool
  *

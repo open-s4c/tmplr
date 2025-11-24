@@ -1,17 +1,15 @@
 /*
  * Copyright (C) 2025 Huawei Technologies Co., Ltd.
- * SPDX-License-Identifier: MIT
- */
-#ifndef TMPLR_H
-#define TMPLR_H
-
-/*
+ * SPDX-License-Identifier: 0BSD
+ *
  * tmplr headers
  *
  * These macros expand to nothing so that tmplr commands can live inside C or
  * C++ sources without confusing the compiler or LSP tooling. See tmplr(1) for
  * the runtime behaviour; the notes below summarize the user-facing API.
  */
+#ifndef TMPLR_H
+#define TMPLR_H
 
 /**
  * Marks the beginning of a template block.
@@ -27,7 +25,6 @@
  * $_end;
  * ```
  */
-
 #define $_begin(...)
 
 /**
