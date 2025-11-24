@@ -88,7 +88,26 @@ We are aware of similar, more powerful tools such as Jinja, Mustache and M4.
 - dependency freedom: no additonal language which will get deprecated
 - c-syntax transperency: annotation should not interfer with the LSP
 
-# Fuzzing `tmplr` with AFL
+## Tests
+
+To test `tmplr`, run:
+
+    make test
+
+It has been tested on different Linux flavors, macOS, and NetBSD.
+
+### Coverage
+
+The target `coverage` compiles the tool with coverage option, with that one can
+use a tool such as `gcovr` to pretty print the results:
+
+    make coverage
+    make test
+    # run your coverage tool.
+
+Currently the coverage is 75%.
+
+### Fuzzing `tmplr` with AFL
 
 After installing AFL, compile `tmplr` with `afl-gcc`:
 
