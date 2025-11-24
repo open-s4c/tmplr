@@ -1,25 +1,23 @@
 .POSIX:
 
 CFLAGS=		-O3
-CFLAGS_=	${CFLAGS}
-CFLAGS_+=	-std=c99
-CFLAGS_+=	-D_XOPEN_SOURCE=700 -D_POSIX_SOURCE
-CFLAGS_+=	-Wall -Wextra -Wpedantic -Wshadow -Werror
-
-COV_FLAGS=	-g -O0 --coverage
+CFLAGS.tmplr=	-std=c99
+CFLAGS.tmplr+=	-D_XOPEN_SOURCE=700 -D_POSIX_SOURCE
+CFLAGS.tmplr+=	-Wall -Wextra -Wpedantic -Wshadow -Werror
+CFLAGS.cov=	-g -O0 --coverage
 
 PREFIX=		/usr/local
 BINDIR=		${PREFIX}/bin
-MANDIR=		${PREFIX}/man/man1
+MANDIR=		${PREFIX}/share/man/man1
 INCLUDEDIR=	${PREFIX}/include
 
 all: tmplr tmplr.1
 clean:
 	rm -rf tmplr version.h tmplr.1
-	@${MAKE} -C test clean
+	@cd test && ${MAKE} clean
 
 tmplr: tmplr.c version.h
-	${CC} ${CFLAGS} -o $@ $<
+	${CC} ${CFLAGS.tmplr} ${CFLAGS} -o $@ tmplr.c
 
 version.h: version.h.in
 	./versionize.sh version.h.in > $@
@@ -28,7 +26,7 @@ tmplr.1: tmplr.1.in
 	./versionize.sh tmplr.1.in > $@
 
 coverage: clean
-	${MAKE} CFLAGS="${COV_FLAGS}" all
+	${MAKE} CFLAGS="${CFLAGS.cov}" all
 
 install: ${TARGETS}
 	mkdir -p ${DESTDIR}${BINDIR} ${DESTDIR}${MANDIR} ${DESTDIR}${INCLUDEDIR}
@@ -37,8 +35,8 @@ install: ${TARGETS}
 	install -m 644 include/tmplr.h ${DESTDIR}${INCLUDEDIR}/
 
 test: all
-	${MAKE} -C test
+	@cd test && ${MAKE}
 
 format:
-	@find . -name '*.h' -exec astyle --options=.astylerc {} +
-	@find . -name '*.c' -exec astyle --options=.astylerc {} +
+	@find . -name '*.h' -exec clang-format -i -style=file {} +
+	@find . -name '*.c' -exec clang-format -i -style=file {} +

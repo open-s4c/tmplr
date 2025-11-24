@@ -22,11 +22,11 @@ fi
 VERSION=$(printf '%s' "$VERSION" | sed -n 's/v\(.*\)$/\1/p')
 
 # determine current date
-DATE=$(date '+%Y-%m-%d' | xargs printf '%s')
+DATE=$(date '+%Y-%m-%d')
 
 # if no filename passed, simply print version and date
 if [ $# -eq 0 ]; then
-    echo $VERSION $DATE $@
+    printf '%s %s %s\n' "$VERSION" "$DATE" "$*"
     exit 0
 fi
 
