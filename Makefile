@@ -20,10 +20,10 @@ tmplr: tmplr.c version.h
 	${CC} ${CFLAGS.tmplr} ${CFLAGS} -o $@ tmplr.c
 
 version.h: version.h.in
-	./versionize.sh version.h.in > $@
+	./versionize.sh -r version.h.in > $@
 
 tmplr.1: tmplr.1.in
-	./versionize.sh tmplr.1.in > $@
+	./versionize.sh -r tmplr.1.in > $@
 
 coverage: clean
 	${MAKE} CFLAGS="${CFLAGS.cov}" all

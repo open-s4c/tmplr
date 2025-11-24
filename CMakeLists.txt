@@ -5,7 +5,7 @@ project(tmplr LANGUAGES C)
 add_custom_target(
   version-gen
   COMMAND
-    ${CMAKE_SOURCE_DIR}/versionize.sh #
+    ${CMAKE_SOURCE_DIR}/versionize.sh -r #
     ${CMAKE_CURRENT_SOURCE_DIR}/version.h.in >
     ${CMAKE_CURRENT_BINARY_DIR}/version.h)
 
