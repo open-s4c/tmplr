@@ -5,11 +5,21 @@
 #ifndef TMPLR_H
 #define TMPLR_H
 
-/**
- * Marks the begin of a template block.
+/*
+ * tmplr headers
  *
- * Takes a comma-separated list of key value pairs, where values can be lists of
- * the form [[val1;val2;val3]] or single values. For example:
+ * These macros expand to nothing so that tmplr commands can live inside C or
+ * C++ sources without confusing the compiler or LSP tooling. See tmplr(1) for
+ * the runtime behaviour; the notes below summarize the user-facing API.
+ */
+
+/**
+ * Marks the beginning of a template block.
+ *
+ * Accepts a comma-separated list of key-value pairs, where each value may be a
+ * single literal or a list in the form [[val1;val2;val3]]. tmplr iterates over
+ * the cartesian product of the provided values and emits the block once per
+ * combination. Example:
  *
  * ```c
  * $_begin(KEY1 = VALUE1, KEY2 = [[VALUE2; VALUE3]]);
@@ -26,11 +36,13 @@
 #define $_end
 
 /**
- * Adds a string to begin or end hook.
+ * Registers content for a block hook.
  *
- * @param HOOK either begin or end
+ * @param HOOK One of begin, end, or final.
  *
- * The string argument may contain commas but no parenthesis.
+ * Hook values are treated as synthetic lines that go through the same mapping
+ * logic as the rest of the block. begin/end hooks run for every iteration,
+ * whereas final runs once after the block is completely processed.
  */
 #define $_hook(HOOK, ...)
 
@@ -45,27 +57,40 @@
 /**
  * Restarts tmplr processing output.
  */
-#define $_mute
+#define $_unmute
 
 /**
- *  Maps a key K to a value which may contain commas
+ * Adds or overrides a persistent mapping that applies outside of blocks.
+ *
+ * Can only be used when tmplr is not in the middle of a template block.
  */
 #define $_map(K, ...)
 
 /**
  * Skips template block iteration.
  *
- * @note This can only be called within $_begin and $_end.
+ * When invoked inside a block, the current iteration stops immediately and the
+ * remaining lines of the block are discarded.
  */
 #define $_skip
 
 /**
- * Deletes the line from the template output.
+ * Truncates the rest of the current line at the point of invocation.
+ */
+#define $_kill
+
+/**
+ * Removes everything emitted on the current line prior to the command.
+ */
+#define $_undo
+
+/**
+ * Deletes the rest of the current line from the template output.
  */
 #define $_dl
 
 /**
- * Adds a new line.
+ * Inserts an explicit newline in the output.
  */
 #define $_nl
 
@@ -77,7 +102,8 @@
 /**
  * Makes content uppercase.
  *
- * @note This can only be called within $_begin and $_end.
+ * Accepts either parentheses or a custom delimiter, e.g. $_upcase(KEY) or
+ * $_upcase%literal%. Useful inside template blocks.
  */
 #define $_upcase(...)
 

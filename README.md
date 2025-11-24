@@ -9,12 +9,18 @@ macros.
 
 ## Quick Installation
 
-You can use `tmplr` as a script as follows:
+Build `tmplr` with your favorite POSIX C toolchain (clang or gcc) using the
+provided Makefile:
 
-    curl -LO https://github.com/open-s4c/tmplr/blob/main/tmplr.c
-    mv tmplr.c tmplr
-    chmod +x tmplr
-    mv tmplr /place/in/path
+```sh
+git clone https://github.com/open-s4c/tmplr.git
+cd tmplr
+make
+sudo make PREFIX=/usr/local install    # optional
+```
+
+`make install` drops the binary, man page, and `include/tmplr.h` under the
+chosen prefix. Set `DESTDIR` when packaging for a distro.
 
 ## Template
 
@@ -38,10 +44,18 @@ semicolumn and optionally sorrounded by `[[` and `]]`.  Consider the example:
 The template expansion will generate one block for each iteration. In the first
 iteration, `key=val1`, in the second iteration, the mapping is `key=val2`.
 
+## Persistent mappings
+
+Outside template blocks you can define mappings that apply everywhere by using
+`$_map(KEY, VALUE)` (or `TMPL_map` if you change the prefix). tmplr applies
+iteration mappings first and then these persistent mappings, so they behave like
+global defaults or overrides for identifiers that appear across many blocks.
+
 ## Command line and mapping override
 
 `tmplr` takes a list of files as input and writes the expanded result to
 the standard output. It provides the following flags:
+
 - `-v` for verbose output and
 - `-D` to select a single value for an iteration mapping. For example,
   - `-D keyA=value1`. Other values will be ignored.
@@ -50,13 +64,13 @@ the standard output. It provides the following flags:
 - `-i` takes input from stdin in addition to file names. stdin is the last
   input to be processed.
 
-
 ## Valid keys and values
 
 `tmplr` **does not** tokenize the input. Hence, a key "two words" is a
 perfectly valid key. Characters such as $ can also be used in keys and values.
 
 The only restriction is that keys cannot contain
+
 - new line: `\n`
 - parenthesis: `(` `)`
 - comma: `,`
@@ -78,7 +92,7 @@ We are aware of similar, more powerful tools such as Jinja, Mustache and M4.
 
 After installing AFL, compile `tmplr` with `afl-gcc`:
 
-    CC=afl-gcc make
+    make CC=afl-gcc
 
 Then run AFL with the tests in the `test/` directory. Since the tests uses
 `_tmpl` prefix, you have also to pass that argument to `tmplr`.

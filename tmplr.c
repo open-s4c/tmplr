@@ -1,14 +1,23 @@
 /*
  * Copyright (C) 2022-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: MIT
+ *
+ * tmplr - a template replacement tool
+ *
+ * tmplr is a simple tool to achieve a minimum level of genericity without
+ * resorting to C preprocessor macros.
+ *
  */
 
 #if defined(__linux__) && !defined(_GNU_SOURCE)
     #define _GNU_SOURCE
+#elif defined(__APPLE__) && !defined(_DARWIN_C_SOURCE)
+    #define _DARWIN_C_SOURCE
 #endif
 
 #include <assert.h>
 #include <stdbool.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,110 +25,22 @@
 #include "version.h"
 
 /*******************************************************************************
- * tmplr - a template replacement tool
- *
- * tmplr is a simple tool to achieve a minimum level of genericity without
- * resorting to C preprocessor macros.
- *
- * ## Template blocks
- *
- * tmplr reads input files and replaces mappings in template blocks. Template
- * blocks are marked with $_begin/$_end commands, see "Template commands" below.
- *
- * For example:
- *
- *     $_begin(key=value)
- *     The following word, key, will be replaced by value.
- *     $_end
- *
- * ## Template mappings
- *
- * The mappings given to $_begin are called *template mappings*.
- *
- * Iteration mappings may take a single value as in keyA = value1 or multiple
- * values as in keyA = [[value1; value2]]. The list of values is separated by
- * semicolumn and optionally sorrounded by [[ ]]. The list of template mappings
- * is separated by commas, for example:
- *
- *     $_begin(keyA=[[val1;val2]], keyB=[[val3;val4]])
- *     ...
- *     $_end
- *
- * ## Block iterations
- *
- * If template mappings contain multiple values, the template block is repeated
- * for each combination of template mappings. Each such instance of template
- * mappings is called *iteration mapping* in the source code.
- *
- * Consider this block example:
- *
- *     $_begin(key=[[val1;val2]])
- *     Key --> key
- *     $_end
- *
- * The template mapping consists of key=[[val1;val2]]. In the first iteration
- * of the block, the iteration mapping is key=val1, in the second iteration,
- * the mapping is key=val2.
- *
- * ## Persistent mappings
- *
- * Beyond template mappings, tmplr also support persistent mappings. Outside
- * template blocks, the user can use the command TMPL_MAP(key, value) to add
- * persistent mappings to the tmplr state.
- *
- * During the processing of each line in a block iteration, *after* exhausting
- * the application of iteration mappings, tmplr applies any persistent mapping
- * matches.
- *
- * ## Command line and mapping override
- *
- * tmplr is a CLI program and takes as input a list of files. It provides a few
- * flags:
- * - -v to enable verbose output
- * - -D to select or overwrite a single value or a list of values in an
- *   iteration mapping. For example,
- *      -Dkey=value sets key to `value` and other values will be ignored.
- *      -Dkey="value1;value2" sets key to the list `value1;value2`
- * - -P to set a prefix to commands differnt than `$`, eg, -PTEMPLATE
- *   assumes commands of the form TEMPLATE_begin, TEMPLATE_end, etc.
- * - -i takes input from stdin in addition to file names. stdin is the last
- *   input to be processed.
- *
- * ## Valid keys and values
- *
- * tmplr **does not** tokenize the input. Hence, a key "two words" is a
- * perfectly valid key. Characters such as $ can also be used in keys and
- * values.
- *
- * The only restriction is that keys cannot contain
- * - new line: \n
- * - parenthesis: ( )
- * - comma: ,
- * - semicolon: ;
- * - nor any tmplr commands
- *
- * Values cannot contain parenthesis, commas nor semicolon.
- *
- * Disclaimer:
- * We are aware of similar, more powerful tools such as Jinja, Mustache and M4.
- * tmplr follows three design principles:
- *
- * - simplicity: as simple and maintainable as possible
- * - dependency freedom: no additonal language which will get deprecated
- * - c-syntax transperency: annotation should not interfer with the LSP
- *   servers such as clangd
- ******************************************************************************/
-
-/*******************************************************************************
  * Logging
  ******************************************************************************/
 
 static bool _verbose;
-#define debugf(fmt, ...)                                                       \
-    do {                                                                       \
-        if (_verbose)                                                          \
-            printf("// " fmt, ##__VA_ARGS__);                                  \
-    } while (0)
+
+static void
+debugf(const char *fmt, ...)
+{
+    if (!_verbose)
+        return;
+    va_list ap;
+    va_start(ap, fmt);
+    fputs("// ", stdout);
+    vprintf(fmt, ap);
+    va_end(ap);
+}
 
 /*******************************************************************************
  * Maximum line lengths and buffer sizes
@@ -594,7 +515,7 @@ end:
  ******************************************************************************/
 
 void
-process_begin()
+process_begin(void)
 {
     debugf("============================\n");
     debugf("[BLOCK_BEGIN]\n");
@@ -746,7 +667,7 @@ again:
 
         case BLOCK_BEGIN_ARGS:
             if ((end = strstr(line, ")"))) {
-                err_t err = parse_template_map(line, end);
+                err = parse_template_map(line, end);
                 if (IS_ERROR(err))
                     return err;
                 S = BLOCK_TEXT;
