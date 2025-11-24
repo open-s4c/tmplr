@@ -35,4 +35,7 @@ jobs:
       - name: Install
         run: make install PREFIX=target
       - name: Check installation
-        run: test -f target/bin/tmplr && test -f target/man/man1/tmplr.1
+        run: |
+          test -f target/bin/tmplr
+          test -f target/share/man/man1/tmplr.1
+          test -f target/include/tmplr.h
