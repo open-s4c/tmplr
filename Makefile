@@ -11,6 +11,7 @@ COV_FLAGS=	-g -O0 --coverage
 PREFIX=		/usr/local
 BINDIR=		${PREFIX}/bin
 MANDIR=		${PREFIX}/man/man1
+INCLUDEDIR=	${PREFIX}/include
 
 all: tmplr tmplr.1
 clean:
@@ -30,10 +31,10 @@ coverage: clean
 	${MAKE} CFLAGS="${COV_FLAGS}" all
 
 install: ${TARGETS}
-	mkdir -p ${DESTDIR}${BINDIR}
+	mkdir -p ${DESTDIR}${BINDIR} ${DESTDIR}${MANDIR} ${DESTDIR}${INCLUDEDIR}
 	install -m 755 tmplr ${DESTDIR}${BINDIR}/
-	mkdir -p ${DESTDIR}${MANDIR}
 	install -m 644 tmplr.1 ${DESTDIR}${MANDIR}/
+	install -m 644 include/tmplr.h ${DESTDIR}${INCLUDEDIR}/
 
 test: all
 	${MAKE} -C test
@@ -41,4 +42,3 @@ test: all
 format:
 	@find . -name '*.h' -exec astyle --options=.astylerc {} +
 	@find . -name '*.c' -exec astyle --options=.astylerc {} +
-

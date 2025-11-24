@@ -2,8 +2,8 @@
  * Copyright (C) 2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: MIT
  */
-#ifndef TMPLR_MACROS_H
-#define TMPLR_MACROS_H
+#ifndef TMPLR_H
+#define TMPLR_H
 
 /**
  * Marks the begin of a template block.
@@ -81,4 +81,4 @@
  */
 #define $_upcase(...)
 
-#endif
+#endif /* TMPLR_H */
