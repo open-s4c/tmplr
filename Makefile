@@ -2,7 +2,6 @@
 
 CFLAGS=		-O3
 CFLAGS.tmplr=	-std=c99
-CFLAGS.tmplr+=	-D_XOPEN_SOURCE=700 -D_POSIX_SOURCE
 CFLAGS.tmplr+=	-Wall -Wextra -Wpedantic -Wshadow -Werror
 CFLAGS.cov=	-g -O0 --coverage
 

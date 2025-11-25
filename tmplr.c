@@ -13,6 +13,10 @@
     #define _GNU_SOURCE
 #elif defined(__APPLE__) && !defined(_DARWIN_C_SOURCE)
     #define _DARWIN_C_SOURCE
+#else
+    #ifndef _XOPEN_SOURCE
+        #define _XOPEN_SOURCE 700
+    #endif
 #endif
 
 #include <assert.h>
