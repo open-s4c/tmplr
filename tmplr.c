@@ -16,6 +16,7 @@
 #endif
 
 #include <assert.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -532,8 +533,23 @@ process_begin(void)
  * content of hte buffer with mappings applied for each value of the mapping
  * iterators.
  ******************************************************************************/
-char save_block[MAX_BLEN][MAX_SLEN];
-int save_k;
+static size_t max_block_lines = MAX_BLEN;
+static char (*save_block)[MAX_SLEN];
+static size_t save_k;
+
+static void
+allocate_block_buffer(void)
+{
+    if (max_block_lines == 0) {
+        fprintf(stderr, "error: block length must be greater than 0\n");
+        exit(EXIT_FAILURE);
+    }
+    save_block = calloc(max_block_lines, sizeof(*save_block));
+    if (save_block == NULL) {
+        fprintf(stderr, "error: could not allocate block buffer\n");
+        exit(EXIT_FAILURE);
+    }
+}
 
 const char *
 sticking(const char *key)
@@ -553,7 +569,7 @@ process_block(int i, const int nvars)
             if (!process_block_line(hook->val))
                 return;
 
-        for (int k = 0; k < save_k && process_block_line(save_block[k]); k++)
+        for (size_t k = 0; k < save_k && process_block_line(save_block[k]); k++)
             ;
 
         if ((hook = find(block_hooks, "end")))
@@ -688,8 +704,8 @@ again:
                 S = BLOCK_END;
                 goto again;
             }
-            if (save_k >= MAX_BLEN)
-                return ERROR("block too long");
+            if (save_k >= max_block_lines)
+                return ERROR("too many lines in block");
 
             memcpy(save_block[save_k++], line, strlen(line) + 1);
             break;
@@ -787,8 +803,21 @@ main(int argc, char *argv[])
     debugf("vatomic generator\n");
     int c;
     char *k;
-    while ((c = getopt(argc, argv, "hisvVP:D:")) != -1) {
+    while ((c = getopt(argc, argv, "b:hisvVP:D:")) != -1) {
         switch (c) {
+            case 'b': {
+                char *endptr      = NULL;
+                errno             = 0;
+                unsigned long val = strtoul(optarg, &endptr, 10);
+                if (errno != 0 || endptr == optarg || *endptr != '\0' ||
+                    val == 0) {
+                    fprintf(stderr, "error: invalid block length '%s'\n",
+                            optarg);
+                    exit(EXIT_FAILURE);
+                }
+                max_block_lines = val;
+                break;
+            }
             case 'D':
                 k    = strstr(optarg, "=");
                 *k++ = '\0';
@@ -823,6 +852,10 @@ main(int argc, char *argv[])
                 printf("Usage:\n\ttmplr [FLAGS] <FILE> [FILE ...]\n\n");
                 printf("Flags:\n");
                 printf("\t-Dkey=value   override template map assignement\n");
+                printf(
+                    "\t-b LINES      set maximum lines buffered per block "
+                    "(default %zu)\n",
+                    (size_t)MAX_BLEN);
                 printf("\t-i            read stdin\n");
                 printf("\t-P PREFIX     use PREFIX instead of $ prefix\n");
                 printf("\t-s            swap iterator and item separators\n");
@@ -836,6 +869,7 @@ main(int argc, char *argv[])
                 break;
         }
     }
+    allocate_block_buffer();
     set_prefix(prefix);
 
     for (int i = optind; i < argc; i++)

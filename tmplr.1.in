@@ -37,6 +37,10 @@ Outside template blocks, persistent mappings can be added through
 iteration mapping substitution.
 .SH OPTIONS
 .TP
+.BI \-b " lines"
+Set the maximum number of buffered lines per template block. The default is
+100 lines, but larger blocks require more memory.
+.TP
 .B \-v
 Enable verbose logging to standard output.
 .TP

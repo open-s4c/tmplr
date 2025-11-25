@@ -56,6 +56,8 @@ global defaults or overrides for identifiers that appear across many blocks.
 `tmplr` takes a list of files as input and writes the expanded result to
 the standard output. It provides the following flags:
 
+- `-b LINES` changes the maximum number of buffered lines per block
+  (default `100`). Increase it for large blocks at the cost of more memory.
 - `-v` for verbose output and
 - `-D` to select a single value for an iteration mapping. For example,
   - `-D keyA=value1`. Other values will be ignored.
