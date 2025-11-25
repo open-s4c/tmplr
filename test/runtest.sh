@@ -9,11 +9,26 @@ if [ -z "$TEST_IN" ]; then
 	exit 1
 fi
 
-TARGET=$(basename ${TEST_IN} .in)
+TARGET=$(basename "${TEST_IN}" .in)
 printf "%s" "[TEST] ${TARGET} ..."
 
+ARGS_FILE=${TARGET}.args
+set --
+if [ -f "${ARGS_FILE}" ]; then
+	while IFS= read -r arg || [ -n "$arg" ]; do
+		case "${arg}" in
+		""|\#*)
+			continue
+			;;
+		esac
+		set -- "$@" "$arg"
+	done < "${ARGS_FILE}"
+else
+	set -- "-P" "_tmpl"
+fi
+
 set +e
-${TMPLR} -P _tmpl ${TEST_IN} > ${TARGET}.out 2> ${TARGET}.err
+"${TMPLR}" "$@" "${TEST_IN}" > ${TARGET}.out 2> ${TARGET}.err
 rc=$?
 set -e
 if [ "$rc" -gt 128 ]; then
