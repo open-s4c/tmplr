@@ -59,9 +59,13 @@ the standard output. It provides the following flags:
 - `-b LINES` changes the maximum number of buffered lines per block
   (default `100`). Increase it for large blocks at the cost of more memory.
 - `-v` for verbose output and
-- `-D` to select a single value for an iteration mapping. For example,
-  - `-D keyA=value1`. Other values will be ignored.
-  - `-D key="value1;value2"` sets key to the list `value1;value2`
+- `-D` to redefine the list of values that a mapping iterates over. For example,
+  `-D keyA="4;5;6"` replaces whatever the template provided, so the block runs
+  with 4, then 5, then 6 regardless of the original list.
+- `-F` to keep only the intersection between the template’s list and the filter
+  list. If the template says `_begin(key=[[1;2;3]])`, passing
+  `-F key="1;4"` will iterate only `1` because 4 was not part of the original
+  mapping.
 - `-P TMPL` change command prefix to `TMPL_begin`, `TMPL_end`, etc.
 - `-i` takes input from stdin in addition to file names. stdin is the last
   input to be processed.

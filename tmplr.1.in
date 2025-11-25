@@ -55,10 +55,20 @@ expects directives such as
 .BR TMPL_begin .
 .TP
 .BI \-D " key=value"
-Override the values of a mapping defined inside a block. Supplying a single
+Redefine the values of a mapping defined inside a block. Supplying a single
 value forces that value, while
 .RB \(dq value1;value2 \(dq
-forces a list of values (the quoting is handled by the shell).
+forces a list of values (the quoting is handled by the shell). The template’s
+original iterator list is ignored once a
+.B \-D
+override is provided.
+.TP
+.BI \-F " key=value"
+Filter the values of a mapping instead of overriding them. The argument accepts
+the same semicolon-separated list syntax as
+.BR \-D .
+Only values present in both the template definition and the filter list are
+kept for iteration; extra values in the filter list are ignored.
 .SH TEMPLATE COMMANDS
 The default command prefix is
 .BR $ ,
