@@ -212,11 +212,17 @@ pair_t template_map[MAX_KEYS];
  */
 pair_t override_map[MAX_KEYS];
 
+/* template filter mappings : key -> value
+ *
+ * Given via command line -F option. These filter template mapping values
+ */
+pair_t filter_map[MAX_KEYS];
+
 /* iteration mappings: key -> value
  *
  * These are the single values of the template mappings, potentially
- * overriden by override mappings. They are set at each iteration of a
- * template block.
+ * overriden by override_map or filtered by filter_map. They are set at
+ * each iteration of a template block.
  *
  * They precede the persistent mappings.
  */
@@ -413,7 +419,7 @@ line_apply(char *line, const char *key, const char *val)
 
     if (cur - line + vlen + slen > MAX_SLEN) {
         fflush(stdout);
-        fprintf(stderr, "error: cannot apply beyong line limit (%lu)\n",
+        fprintf(stderr, "error: cannot apply beyond line limit (%lu)\n",
                 MAX_SLEN);
         exit(EXIT_FAILURE);
     }
@@ -552,12 +558,78 @@ allocate_block_buffer(void)
 }
 
 const char *
-sticking(const char *key)
+get_pair(pair_t map[MAX_KEYS], const char *key)
 {
-    for (int i = 0; i < MAX_KEYS && strlen(override_map[i].key) != 0; i++)
-        if (strcmp(override_map[i].key, key) == 0)
-            return override_map[i].val;
+    for (int i = 0; i < MAX_KEYS && strlen(map[i].key) != 0; i++)
+        if (strcmp(map[i].key, key) == 0)
+            return map[i].val;
     return NULL;
+}
+
+
+/* takes to strings of elements separated by sep and outputs in dst only the
+ * elements that are contained in both strings. The dst string be again of the
+ * form element<sep>element... */
+void
+intersect(char *dst, char *other, const char *sep)
+{
+    if (dst == NULL || other == NULL || sep == NULL)
+        return;
+
+    char dst_buf[V_BUF_LEN]   = {0};
+    char other_buf[V_BUF_LEN] = {0};
+
+    strncpy(dst_buf, dst, sizeof(dst_buf) - 1);
+    strncpy(other_buf, other, sizeof(other_buf) - 1);
+
+    char *allowed[V_BUF_LEN] = {0};
+    size_t allowed_cnt       = 0;
+
+    char *saveptr = NULL;
+    char *tok     = strtok_r(dst_buf, sep, &saveptr);
+    while (tok && allowed_cnt < sizeof(allowed) / sizeof(allowed[0])) {
+        trims(tok, " []");
+        if (tok[0] != '\0')
+            allowed[allowed_cnt++] = tok;
+        tok = strtok_r(NULL, sep, &saveptr);
+    }
+
+    dst[0]            = '\0';
+    bool first_token  = true;
+    const size_t slen = strlen(sep);
+
+    saveptr = NULL;
+    tok     = strtok_r(other_buf, sep, &saveptr);
+    while (tok) {
+        trims(tok, " []");
+        if (tok[0] != '\0') {
+            for (size_t i = 0; i < allowed_cnt; i++) {
+                if (strcmp(tok, allowed[i]) != 0)
+                    continue;
+
+                size_t dst_len = strlen(dst);
+                size_t tok_len = strlen(tok);
+                if (!first_token) {
+                    if (dst_len + slen >= V_BUF_LEN)
+                        goto overflow;
+                    strcat(dst, sep);
+                    dst_len += slen;
+                }
+                if (dst_len + tok_len >= V_BUF_LEN)
+                    goto overflow;
+                strcat(dst, tok);
+                first_token = false;
+                break;
+            }
+        }
+        tok = strtok_r(NULL, sep, &saveptr);
+    }
+    return;
+
+overflow:
+    fprintf(stderr, "error: filter intersection exceeds value length (%d)\n",
+            V_BUF_LEN);
+    exit(EXIT_FAILURE);
 }
 
 void
@@ -584,18 +656,21 @@ process_block(int i, const int nvars)
     const char *sep = OPTION(ITER_SEP);
     char *saveptr   = NULL;
 
-    const char *sval_ = sticking(p->key);
-    char *sval        = sval_ ? strdup(sval_) : NULL;
-    char *tok         = strtok_r(val, sep, &saveptr);
+    char *tok         = NULL;
+    const char *oval_ = get_pair(override_map, p->key);
+    const char *fval_ = get_pair(filter_map, p->key);
+    char *oval        = oval_ ? strdup(oval_) : NULL;
+    char *fval        = fval_ ? strdup(fval_) : NULL;
 
-    if (sval != NULL) {
-        /* if there are sticking values, ie, from override_map,
-         * discard all other values of tok and only use sval */
-        while (tok)
-            tok = strtok_r(0, sep, &saveptr);
-
-        saveptr = NULL;
-        tok     = strtok_r(sval, sep, &saveptr);
+    if (oval != NULL) {
+        /* if there are defined values (with -DVAR=VAL1;VAL2),
+         * discard all other values of tok and only use those. */
+        tok = strtok_r(oval, sep, &saveptr);
+    } else if (fval != NULL) {
+        intersect(fval, val, sep);
+        tok = strtok_r(fval, sep, &saveptr);
+    } else {
+        tok = strtok_r(val, sep, &saveptr);
     }
 
     while (tok) {
@@ -606,8 +681,10 @@ process_block(int i, const int nvars)
         tok = strtok_r(0, sep, &saveptr);
     }
 
-    if (sval != NULL)
-        free(sval);
+    if (oval != NULL)
+        free(oval);
+    if (fval != NULL)
+        free(fval);
 
     if (i == 0 && (hook = find(block_hooks, "final"))) {
         (void)process_block_line(hook->val);
@@ -803,7 +880,7 @@ main(int argc, char *argv[])
     debugf("vatomic generator\n");
     int c;
     char *k;
-    while ((c = getopt(argc, argv, "b:hisvVP:D:")) != -1) {
+    while ((c = getopt(argc, argv, "b:hisvVP:D:F:")) != -1) {
         switch (c) {
             case 'b': {
                 char *endptr      = NULL;
@@ -822,6 +899,11 @@ main(int argc, char *argv[])
                 k    = strstr(optarg, "=");
                 *k++ = '\0';
                 remap(override_map, optarg, k);
+                break;
+            case 'F':
+                k    = strstr(optarg, "=");
+                *k++ = '\0';
+                remap(filter_map, optarg, k);
                 break;
             case 'P':
                 prefix = strdup(optarg);
@@ -852,6 +934,7 @@ main(int argc, char *argv[])
                 printf("Usage:\n\ttmplr [FLAGS] <FILE> [FILE ...]\n\n");
                 printf("Flags:\n");
                 printf("\t-Dkey=value   override template map assignement\n");
+                printf("\t-Fkey=value   filter template map assignement\n");
                 printf(
                     "\t-b LINES      set maximum lines buffered per block "
                     "(default %zu)\n",
