@@ -7,8 +7,9 @@ CFLAGS.cov=	-g -O0 --coverage
 
 PREFIX=		/usr/local
 BINDIR=		${PREFIX}/bin
-MANDIR=		${PREFIX}/share/man/man1
+MANDIR=		${PREFIX}/share/man
 INCLUDEDIR=	${PREFIX}/include
+SHAREDIR=	${PREFIX}/share/tmplr
 
 all: tmplr tmplr.1
 clean:
@@ -28,10 +29,12 @@ coverage: clean
 	${MAKE} CFLAGS="${CFLAGS.cov}" all
 
 install: ${TARGETS}
-	mkdir -p ${DESTDIR}${BINDIR} ${DESTDIR}${MANDIR} ${DESTDIR}${INCLUDEDIR}
+	mkdir -p ${DESTDIR}${BINDIR} ${DESTDIR}${MANDIR}/man1
+	mkdir -p ${DESTDIR}${INCLUDEDIR} ${DESTDIR}${SHAREDIR}
 	install -m 755 tmplr ${DESTDIR}${BINDIR}/
-	install -m 644 tmplr.1 ${DESTDIR}${MANDIR}/
+	install -m 644 tmplr.1 ${DESTDIR}${MANDIR}/man1/
 	install -m 644 include/tmplr.h ${DESTDIR}${INCLUDEDIR}/
+	install -m 755 share/tmplr/ensure-cmd.sh ${DESTDIR}${SHAREDIR}/
 
 test: all
 	@cd test && ${MAKE}
