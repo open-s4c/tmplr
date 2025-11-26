@@ -28,7 +28,7 @@ tmplr.1: tmplr.1.in
 coverage: clean
 	${MAKE} CFLAGS="${CFLAGS.cov}" all
 
-install: ${TARGETS}
+install: all
 	mkdir -p ${DESTDIR}${BINDIR} ${DESTDIR}${MANDIR}/man1
 	mkdir -p ${DESTDIR}${INCLUDEDIR} ${DESTDIR}${SHAREDIR}
 	install -m 755 tmplr ${DESTDIR}${BINDIR}/
