@@ -251,13 +251,13 @@ remap(pair_t *map, const char *key, const char *val)
     for (int i = 0; i < MAX_KEYS; i++) {
         pair_t *p = map + i;
         if (!p->key[0] || strcmp(p->key, key) == 0) {
-            memset(p->key, 0, MAX_KLEN);
-            strcat(p->key, key);
-            trim(p->key, ' ');
+            memset(p->key, 0, sizeof(p->key));
+            strncat(p->key, key, sizeof(p->key) - 1);
+            trims(p->key, " \t");
 
-            memset(p->val, 0, MAX_VLEN);
-            strcat(p->val, val);
-            trim(p->val, ' ');
+            memset(p->val, 0, sizeof(p->val));
+            strncat(p->val, val, sizeof(p->val) - 1);
+            trims(p->val, " ");
             debugf("[REMAP] %s = %s\n", p->key, p->val);
             return;
         }

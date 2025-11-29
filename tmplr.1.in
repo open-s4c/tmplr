@@ -162,8 +162,15 @@ removes whichever line contains it: a buffered line when used inside a block,
 or a top\-level line before it is printed.
 .SH INPUT FORMAT
 Keys may contain any character except newline, parentheses, commas, semicolons,
-or other tmplr commands. Values may not contain parentheses, commas, or
-semicolons. Keys and values are never tokenized, so whitespace is preserved.
+or other tmplr commands. Leading and trailing spaces around a key are discarded
+(`KEY`, ` KEY`, and `KEY ` all match the same identifier), and the same literal
+rules apply to
+.B $_map(...)
+and
+.B $_hook(...)
+declarations. Values cannot contain parentheses, commas, or semicolons; their
+outermost whitespace is trimmed as well, so inject explicit placeholders if the
+expanded text needs padding.
 .SH EXAMPLES
 .SS Expanding a template
 .PP

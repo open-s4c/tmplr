@@ -22,6 +22,12 @@ sudo make PREFIX=/usr/local install    # optional
 `make install` drops the binary, man page, and `include/tmplr.h` under the
 chosen prefix. Set `DESTDIR` when packaging for a distro.
 
+For the complete CLI and directive reference, see the bundled man page:
+
+```
+man ./tmplr.1
+```
+
 ## Template
 
 `tmplr` reads input files and replaces mappings in template blocks. Template
@@ -72,10 +78,14 @@ the standard output. It provides the following flags:
 
 ## Valid keys and values
 
-`tmplr` **does not** tokenize the input. Hence, a key "two words" is a
-perfectly valid key. Characters such as $ can also be used in keys and values.
+`tmplr` **does not** tokenize the input, so multiword keys such as `two words`
+are valid and characters like `$` may appear anywhere. Leading and trailing
+spaces are stripped when a key is parsed, so `KEY`, ` KEY`, and `KEY ` refer to
+the same identifier (do the same for `$_map(...)` and `$_hook(...)` calls). If
+you need literal whitespace at the edges, encode it explicitly (for example by
+mapping `_SPACE` and referencing that placeholder inside the block).
 
-The only restriction is that keys cannot contain
+Keys cannot contain
 
 - new line: `\n`
 - parenthesis: `(` `)`
@@ -83,7 +93,9 @@ The only restriction is that keys cannot contain
 - semicolon: `;`
 - nor any `tmplr` commands
 
-Values cannot contain parenthesis, commas nor semicolon.
+Values cannot contain parenthesis, commas, or semicolons. Like keys, they are
+trimmed at the edges, so surrounding spaces must be injected manually if
+needed.
 
 ## Disclaimer
 
