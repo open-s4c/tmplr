@@ -330,15 +330,19 @@ set_option(enum options opt, char *val)
 err_t
 parse_assign(pair_t *p, char *start, char *end)
 {
-    char key[K_BUF_LEN] = {0};
-    char val[V_BUF_LEN] = {0};
+    char key[K_BUF_LEN + 1] = {0};
+    char val[V_BUF_LEN + 1] = {0};
 
     char *comma = strstr(start, OPTION(KV_SEP));
     if (comma == NULL)
         return ERROR("expected separator");
     start++;
+    if (comma - start >= K_BUF_LEN)
+        return ERROR("key is too long");
     strncat(key, start, comma - start);
     comma++;
+    if (comma - end >= V_BUF_LEN)
+        return ERROR("value is too long");
     strncat(val, comma, end - comma);
     remap(p, key, val);
     return NO_ERROR;
