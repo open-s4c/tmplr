@@ -97,6 +97,8 @@ debugf(const char *fmt, ...)
 #define TMPL_SUFFIX_NL     "_nl"
 #define TMPL_SUFFIX_UPCASE "_upcase"
 #define TMPL_SUFFIX_HOOK   "_hook"
+#define TMPL_SUFFIX_ICOUNT "_icount"
+#define TMPL_SUFFIX_ISLAST "_islast"
 
 static char *TMPL_MAP;
 static char *TMPL_BEGIN;
@@ -111,6 +113,8 @@ static char *TMPL_DL;
 static char *TMPL_NL;
 static char *TMPL_UPCASE;
 static char *TMPL_HOOK;
+static char *TMPL_ICOUNT;
+static char *TMPL_ISLAST;
 
 /* set prefix of commands. If prefix is NULL, use default TMPL_PREFIX. */
 void
@@ -128,10 +132,10 @@ set_prefix(const char *prefix)
         char **cmd;
         const char *suffix;
     } cmds[] = {
-        CMD_PAIR(MAP),    CMD_PAIR(BEGIN), CMD_PAIR(END),  CMD_PAIR(MUTE),
-        CMD_PAIR(UNMUTE), CMD_PAIR(ABORT), CMD_PAIR(SKIP), CMD_PAIR(KILL),
-        CMD_PAIR(UNDO),   CMD_PAIR(DL),    CMD_PAIR(NL),   CMD_PAIR(UPCASE),
-        CMD_PAIR(HOOK),   {NULL, NULL},
+        CMD_PAIR(MAP),    CMD_PAIR(BEGIN),  CMD_PAIR(END),    CMD_PAIR(MUTE),
+        CMD_PAIR(UNMUTE), CMD_PAIR(ABORT),  CMD_PAIR(SKIP),   CMD_PAIR(KILL),
+        CMD_PAIR(UNDO),   CMD_PAIR(DL),     CMD_PAIR(NL),     CMD_PAIR(UPCASE),
+        CMD_PAIR(HOOK),   CMD_PAIR(ICOUNT), CMD_PAIR(ISLAST), {NULL, NULL},
     };
 
     for (int i = 0; cmds[i].cmd != NULL; i++) {
@@ -640,14 +644,27 @@ overflow:
     exit(EXIT_FAILURE);
 }
 
+/* process_block is a recursive function that repeats the block for every
+ * combination of values in the iteratin map.
+ *
+ * The parameter i indicates which variable out of nvars that has we have to
+ * select a value. Once we have selected values for all variables, i == nvars,
+ * and one block iteration is processed. The parameters count and last indicate
+ * the current iteration count and whether the current iteration is the last one
+ * of this template block. */
 void
-process_block(int i, const int nvars)
+process_block(int i, const int nvars, int *count, bool last)
 {
     pair_t *hook = NULL;
     if (i == nvars) {
+        char icount[V_BUF_LEN + 1] = {0};
+        snprintf(icount, V_BUF_LEN, "%d", *count);
+        remap(iteration_map, TMPL_ICOUNT, icount);
+        remap(iteration_map, TMPL_ISLAST, last ? "true" : "false");
+
         if ((hook = find(block_hooks, "begin")))
             if (!process_block_line(hook->val))
-                return;
+                goto end;
 
         for (size_t k = 0; k < save_k && process_block_line(save_block[k]); k++)
             ;
@@ -655,6 +672,10 @@ process_block(int i, const int nvars)
         if ((hook = find(block_hooks, "end")))
             (void)process_block_line(hook->val);
 
+end:
+        (*count)++;
+        unmap(iteration_map, TMPL_ICOUNT);
+        unmap(iteration_map, TMPL_ISLAST);
         return;
     }
     pair_t *p           = template_map + i;
@@ -684,9 +705,9 @@ process_block(int i, const int nvars)
     while (tok) {
         trims(tok, " ");
         remap(iteration_map, p->key, tok);
-        process_block(i + 1, nvars);
-        unmap(iteration_map, p->key);
         tok = strtok_r(0, sep, &saveptr);
+        process_block(i + 1, nvars, count, last && (!tok));
+        unmap(iteration_map, p->key);
     }
 
     if (oval != NULL)
@@ -801,7 +822,8 @@ again:
                 for (int i = 0; i < MAX_KEYS; i++)
                     if (template_map[i].key[0])
                         nvars++;
-                process_block(0, nvars);
+                int count = 0;
+                process_block(0, nvars, &count, true);
             }
             save_k = 0;
             S      = TEXT;
