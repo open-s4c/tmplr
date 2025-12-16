@@ -35,6 +35,7 @@
 
 static bool _verbose;
 
+/* maximum length of a value */
 static size_t max_vlen = 256;
 
 static void
@@ -74,6 +75,10 @@ debugf(const char *fmt, ...)
 /* maximum number of replacements per line */
 #ifndef MAX_APPLY
     #define MAX_APPLY 32
+#endif
+/* minimum buffer length to hold an int*/
+#ifndef V_BUF_LEN
+    #define V_BUF_LEN 32
 #endif
 
 /*******************************************************************************
@@ -703,12 +708,7 @@ process_block(int i, const int nvars, int *count, bool last)
     pair_t *hook = NULL;
 
     if (i == nvars) {
-        char *icount = calloc(max_vlen + 1, sizeof(char));
-        if (!icount) {
-            perror("out of memory");
-            exit(EXIT_FAILURE);
-        }
-
+        char icount[V_BUF_LEN];
         snprintf(icount, max_vlen, "%d", *count);
 
         remap(iteration_map, TMPL_ICOUNT, icount);
@@ -716,7 +716,7 @@ process_block(int i, const int nvars, int *count, bool last)
 
         if ((hook = find(block_hooks, "begin")))
             if (!process_block_line(hook->val))
-                goto end_base;
+                goto end;
 
         for (size_t k = 0; k < save_k && process_block_line(save_block[k]); k++)
             ;
@@ -724,12 +724,11 @@ process_block(int i, const int nvars, int *count, bool last)
         if ((hook = find(block_hooks, "end")))
             (void)process_block_line(hook->val);
 
-end_base:
+end:
         (*count)++;
         unmap(iteration_map, TMPL_ICOUNT);
         unmap(iteration_map, TMPL_ISLAST);
 
-        free(icount);
         return;
     }
 
@@ -753,6 +752,8 @@ end_base:
     char *fval        = fval_ ? strdup(fval_) : NULL;
 
     if (oval != NULL) {
+        /* if there are defined values (with -DVAR=VAL1;VAL2),
+        discard all other values of tok and only use those. */
         tok = strtok_r(oval, sep, &saveptr);
     } else if (fval != NULL) {
         intersect(fval, val, sep);
@@ -1004,6 +1005,12 @@ main(int argc, char *argv[])
                     val == 0) {
                     fprintf(stderr, "error: invalid maximum length '%s'\n",
                             optarg);
+                    exit(EXIT_FAILURE);
+                }
+                if (val < V_BUF_LEN) {
+                    fprintf(stderr,
+                            "error: maximum length must be at least %u\n",
+                            (unsigned)V_BUF_LEN);
                     exit(EXIT_FAILURE);
                 }
                 max_vlen = (size_t)val;
