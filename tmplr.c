@@ -76,6 +76,10 @@ debugf(const char *fmt, ...)
 #ifndef MAX_APPLY
     #define MAX_APPLY 32
 #endif
+/* absolute upper bound for max_vlen */
+#ifndef ABSOLUTE_MAX_VLEN
+    #define ABSOLUTE_MAX_VLEN (4096UL)
+#endif
 /* minimum buffer length to hold an int*/
 #ifndef V_BUF_LEN
     #define V_BUF_LEN 32
@@ -1005,6 +1009,12 @@ main(int argc, char *argv[])
                     val == 0) {
                     fprintf(stderr, "error: invalid maximum length '%s'\n",
                             optarg);
+                    exit(EXIT_FAILURE);
+                }
+                if (val > ABSOLUTE_MAX_VLEN) {
+                    fprintf(stderr,
+                            "error: maximum length must be at max %lu\n",
+                            ABSOLUTE_MAX_VLEN);
                     exit(EXIT_FAILURE);
                 }
                 if (val < V_BUF_LEN) {
