@@ -709,7 +709,7 @@ process_block(int i, const int nvars, int *count, bool last)
 
     if (i == nvars) {
         char icount[V_BUF_LEN];
-        snprintf(icount, max_vlen, "%d", *count);
+        snprintf(icount, sizeof(icount), "%d", *count);
 
         remap(iteration_map, TMPL_ICOUNT, icount);
         remap(iteration_map, TMPL_ISLAST, last ? "true" : "false");
