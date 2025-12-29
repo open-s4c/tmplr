@@ -81,8 +81,8 @@ debugf(const char *fmt, ...)
     #define ABSOLUTE_MAX_VLEN (4096UL)
 #endif
 /* minimum buffer length to hold an int*/
-#ifndef V_BUF_LEN
-    #define V_BUF_LEN 32
+#ifndef V_MIN_LEN
+    #define V_MIN_LEN 32
 #endif
 
 /*******************************************************************************
@@ -268,11 +268,6 @@ remap(pair_t *map, const char *key, const char *val)
                 exit(EXIT_FAILURE);
             }
 
-            if (p->val != NULL) {
-                free(p->val);
-                p->val = NULL;
-            }
-
             p->val = strdup(val);
 
             trims(p->val, " ");
@@ -326,7 +321,7 @@ clean(pair_t *map)
 {
     for (int i = 0; i < MAX_KEYS; i++) {
         if (map[i].val != NULL) {
-            free(map[i].val);
+            map[i].val = NULL;
         }
     }
     memset(map, 0, sizeof(pair_t) * MAX_KEYS);
@@ -355,36 +350,45 @@ set_option(enum options opt, char *val)
  * parse functions
  ******************************************************************************/
 
+#define goto_error(label, error)                                               \
+    {                                                                          \
+        err = ERROR(error);                                                    \
+        goto label;                                                            \
+    }
 err_t
 parse_assign(pair_t *p, char *start, char *end)
 {
     char key[K_BUF_LEN + 1] = {0};
 
+    err_t err = NO_ERROR;
+
     char *val = calloc(max_vlen + 1, sizeof(char));
-    if (!val)
-        return ERROR("out of memory");
+    if (!val) {
+        goto_error(cleanup, "out of memory");
+    }
 
     char *comma = strstr(start, OPTION(KV_SEP));
     if (comma == NULL) {
-        free(val);
-        return ERROR("expected separator");
+        goto_error(cleanup, "expected separator");
     }
     start++;
     if (comma - start >= K_BUF_LEN) {
-        free(val);
-        return ERROR("key is too long");
+        goto_error(cleanup, "key is too long");
     }
     strncat(key, start, comma - start);
     comma++;
     if ((size_t)(end - comma) >= max_vlen) {
-        free(val);
-        return ERROR("value is too long");
+        goto_error(cleanup, "value is too long");
     }
     strncat(val, comma, end - comma);
     remap(p, key, val);
 
     free(val);
     return NO_ERROR;
+
+cleanup:
+    free(val);
+    return err;
 }
 
 err_t
@@ -415,6 +419,7 @@ again:
     char key[K_BUF_LEN] = {0};
     strncat(key, start, MAX_KLEN);
 
+    /* clear the buffer to ensure proper NUL-termination and garbage data */
     memset(val, 0, max_vlen + 1);
 
     size_t src_len = strlen(values);
@@ -630,6 +635,8 @@ intersect(char *dst, char *other, const char *sep)
     if (dst == NULL || other == NULL || sep == NULL)
         return;
 
+
+    /* dinamically allocate a buffer to support variable length */
     char *dst_buf   = calloc(max_vlen + 1, sizeof(char));
     char *other_buf = calloc(max_vlen + 1, sizeof(char));
 
@@ -712,7 +719,7 @@ process_block(int i, const int nvars, int *count, bool last)
     pair_t *hook = NULL;
 
     if (i == nvars) {
-        char icount[V_BUF_LEN];
+        char icount[V_MIN_LEN];
         snprintf(icount, sizeof(icount), "%d", *count);
 
         remap(iteration_map, TMPL_ICOUNT, icount);
@@ -1017,10 +1024,10 @@ main(int argc, char *argv[])
                             ABSOLUTE_MAX_VLEN);
                     exit(EXIT_FAILURE);
                 }
-                if (val < V_BUF_LEN) {
+                if (val < V_MIN_LEN) {
                     fprintf(stderr,
                             "error: maximum length must be at least %u\n",
-                            (unsigned)V_BUF_LEN);
+                            (unsigned)V_MIN_LEN);
                     exit(EXIT_FAILURE);
                 }
                 max_vlen = (size_t)val;
