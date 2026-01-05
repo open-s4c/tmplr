@@ -905,8 +905,8 @@ process_file(const char *fn)
 int
 main(int argc, char *argv[])
 {
-    bool read_stdin    = false;
-    const char *prefix = NULL;
+    bool read_stdin = false;
+    char *prefix    = NULL;
     debugf("vatomic generator\n");
     int c;
     char *k;
@@ -990,5 +990,6 @@ main(int argc, char *argv[])
     if (read_stdin)
         process_fp(stdin, "<stdin>");
 
+    free(prefix);
     return 0;
 }
