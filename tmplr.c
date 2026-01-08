@@ -188,9 +188,12 @@ void
 trim(char *s, char c)
 {
     assert(s);
+
+    size_t len = strlen(s);
+
     /* remove trailing space */
-    while (s[strlen(s) - 1] == c)
-        s[strlen(s) - 1] = '\0';
+    while (len > 0 && s[len - 1] == c)
+        s[len - 1] = '\0';
 
     /* remove leading space */
     while (s[0] == c)
@@ -268,6 +271,11 @@ remap(pair_t *map, const char *key, const char *val)
                 exit(EXIT_FAILURE);
             }
 
+            if (p->val != NULL) {
+                free(p->val);
+                p->val = NULL;
+            }
+
             p->val = strdup(val);
 
             trims(p->val, " ");
@@ -321,6 +329,7 @@ clean(pair_t *map)
 {
     for (int i = 0; i < MAX_KEYS; i++) {
         if (map[i].val != NULL) {
+            free(map[i].val);
             map[i].val = NULL;
         }
     }
@@ -437,6 +446,7 @@ again:
         goto again;
     }
 
+    free(val);
     return NO_ERROR;
 }
 
