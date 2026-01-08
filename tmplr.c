@@ -192,7 +192,7 @@ trim(char *s, char c)
     size_t len = strlen(s);
 
     /* remove trailing space */
-    while (len > 0 && s[len - 1] == c)
+    for (; len > 0 && s[len - 1] == c; len = strlen(s))
         s[len - 1] = '\0';
 
     /* remove leading space */
@@ -391,8 +391,6 @@ parse_assign(pair_t *p, char *start, char *end)
     }
     strncat(val, comma, end - comma);
     remap(p, key, val);
-
-    free(val);
     return NO_ERROR;
 
 cleanup:
