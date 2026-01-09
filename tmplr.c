@@ -391,7 +391,6 @@ parse_assign(pair_t *p, char *start, char *end)
     }
     strncat(val, comma, end - comma);
     remap(p, key, val);
-    return NO_ERROR;
 
 cleanup:
     free(val);
