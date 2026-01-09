@@ -35,6 +35,9 @@
 
 static bool _verbose;
 
+/* maximum length of a value */
+static size_t max_vlen = 256;
+
 static void
 debugf(const char *fmt, ...)
 {
@@ -63,12 +66,6 @@ debugf(const char *fmt, ...)
 #ifndef MAX_KEYS
     #define MAX_KEYS 1024
 #endif
-/* maximum length of a value */
-#ifndef MAX_VLEN
-    #define MAX_VLEN 256
-#endif
-/* Buffer to hold the value */
-#define V_BUF_LEN ((MAX_VLEN) + 1)
 /* maximum length of a key */
 #ifndef MAX_KLEN
     #define MAX_KLEN 64
@@ -78,6 +75,14 @@ debugf(const char *fmt, ...)
 /* maximum number of replacements per line */
 #ifndef MAX_APPLY
     #define MAX_APPLY 32
+#endif
+/* absolute upper bound for max_vlen */
+#ifndef ABSOLUTE_MAX_VLEN
+    #define ABSOLUTE_MAX_VLEN (4096UL)
+#endif
+/* minimum buffer length to hold an int*/
+#ifndef V_MIN_LEN
+    #define V_MIN_LEN 32
 #endif
 
 /*******************************************************************************
@@ -159,7 +164,7 @@ set_prefix(const char *prefix)
  */
 typedef struct {
     char key[K_BUF_LEN];
-    char val[V_BUF_LEN];
+    char *val;
 } pair_t;
 
 /* err_t represents an error message */
@@ -167,11 +172,7 @@ typedef struct {
     const char *msg;
 } err_t;
 
-#define NO_ERROR                                                               \
-    (err_t)                                                                    \
-    {                                                                          \
-        0                                                                      \
-    }
+#define NO_ERROR (err_t){0}
 #define ERROR(m)                                                               \
     (err_t)                                                                    \
     {                                                                          \
@@ -187,9 +188,12 @@ void
 trim(char *s, char c)
 {
     assert(s);
+
+    size_t len = strlen(s);
+
     /* remove trailing space */
-    while (s[strlen(s) - 1] == c)
-        s[strlen(s) - 1] = '\0';
+    for (; len > 0 && s[len - 1] == c; len = strlen(s))
+        s[len - 1] = '\0';
 
     /* remove leading space */
     while (s[0] == c)
@@ -259,9 +263,23 @@ remap(pair_t *map, const char *key, const char *val)
             strncat(p->key, key, sizeof(p->key) - 1);
             trims(p->key, " \t");
 
-            memset(p->val, 0, sizeof(p->val));
-            strncat(p->val, val, sizeof(p->val) - 1);
+            size_t input_len = strlen(val);
+            if (input_len > max_vlen) {
+                fprintf(stderr,
+                        "error: value for key '%s' is too long (%zu > %zu)\n",
+                        key, input_len, max_vlen);
+                exit(EXIT_FAILURE);
+            }
+
+            if (p->val != NULL) {
+                free(p->val);
+                p->val = NULL;
+            }
+
+            p->val = strdup(val);
+
             trims(p->val, " ");
+
             debugf("[REMAP] %s = %s\n", p->key, p->val);
             return;
         }
@@ -287,7 +305,11 @@ unmap(pair_t *map, char *key)
         return;
 
     memset(p->key, 0, MAX_KLEN);
-    memset(p->val, 0, MAX_VLEN);
+
+    if (p->val != NULL) {
+        free(p->val);
+        p->val = NULL;
+    }
 }
 
 void
@@ -305,6 +327,12 @@ show(pair_t *map, const char *name)
 void
 clean(pair_t *map)
 {
+    for (int i = 0; i < MAX_KEYS; i++) {
+        if (map[i].val != NULL) {
+            free(map[i].val);
+            map[i].val = NULL;
+        }
+    }
     memset(map, 0, sizeof(pair_t) * MAX_KEYS);
 }
 
@@ -331,25 +359,42 @@ set_option(enum options opt, char *val)
  * parse functions
  ******************************************************************************/
 
+#define goto_error(label, error)                                               \
+    {                                                                          \
+        err = ERROR(error);                                                    \
+        goto label;                                                            \
+    }
 err_t
 parse_assign(pair_t *p, char *start, char *end)
 {
     char key[K_BUF_LEN + 1] = {0};
-    char val[V_BUF_LEN + 1] = {0};
+
+    err_t err = NO_ERROR;
+
+    char *val = calloc(max_vlen + 1, sizeof(char));
+    if (!val) {
+        goto_error(cleanup, "out of memory");
+    }
 
     char *comma = strstr(start, OPTION(KV_SEP));
-    if (comma == NULL)
-        return ERROR("expected separator");
+    if (comma == NULL) {
+        goto_error(cleanup, "expected separator");
+    }
     start++;
-    if (comma - start >= K_BUF_LEN)
-        return ERROR("key is too long");
+    if (comma - start >= K_BUF_LEN) {
+        goto_error(cleanup, "key is too long");
+    }
     strncat(key, start, comma - start);
     comma++;
-    if (comma - end >= V_BUF_LEN)
-        return ERROR("value is too long");
+    if ((size_t)(end - comma) >= max_vlen) {
+        goto_error(cleanup, "value is too long");
+    }
     strncat(val, comma, end - comma);
     remap(p, key, val);
-    return NO_ERROR;
+
+cleanup:
+    free(val);
+    return err;
 }
 
 err_t
@@ -359,6 +404,10 @@ parse_template_map(char *start, char *end)
     start++;
     *end = '\0';
 
+    char *val = calloc(max_vlen + 1, sizeof(char));
+    if (!val)
+        return ERROR("out of memory");
+
 again:
     next = strstr(start, OPTION(ITEM_SEP));
     if (next) {
@@ -366,21 +415,25 @@ again:
         next++;
     }
     values = strstr(start, "=");
-    if (values == NULL)
+    if (values == NULL) {
+        free(val);
         return ERROR("expected '='");
+    }
     *values = '\0';
     values++;
 
     char key[K_BUF_LEN] = {0};
     strncat(key, start, MAX_KLEN);
 
-    char val[V_BUF_LEN] = {0};
-    size_t src_len      = strlen(values);
-    size_t dst_len      = V_BUF_LEN - 1;
-    if (src_len < dst_len)
+    /* clear the buffer to ensure proper NUL-termination and garbage data */
+    memset(val, 0, max_vlen + 1);
+
+    size_t src_len = strlen(values);
+    if (src_len < max_vlen)
         strcat(val, values);
     else
-        strncat(val, values, dst_len);
+        strncat(val, values, max_vlen);
+
     trims(val, " []");
 
     remap(template_map, key, val);
@@ -390,6 +443,7 @@ again:
         goto again;
     }
 
+    free(val);
     return NO_ERROR;
 }
 
@@ -588,18 +642,26 @@ intersect(char *dst, char *other, const char *sep)
     if (dst == NULL || other == NULL || sep == NULL)
         return;
 
-    char dst_buf[V_BUF_LEN]   = {0};
-    char other_buf[V_BUF_LEN] = {0};
+
+    /* dinamically allocate a buffer to support variable length */
+    char *dst_buf   = calloc(max_vlen + 1, sizeof(char));
+    char *other_buf = calloc(max_vlen + 1, sizeof(char));
+
+    char **allowed = calloc(max_vlen + 1, sizeof(char *));
+
+    if (!dst_buf || !other_buf || !allowed) {
+        fprintf(stderr, "error: out of memory in intersect\n");
+        exit(EXIT_FAILURE);
+    }
 
     strncpy(dst_buf, dst, sizeof(dst_buf) - 1);
     strncpy(other_buf, other, sizeof(other_buf) - 1);
 
-    char *allowed[V_BUF_LEN] = {0};
-    size_t allowed_cnt       = 0;
+    size_t allowed_cnt = 0;
+    char *saveptr      = NULL;
+    char *tok          = strtok_r(dst_buf, sep, &saveptr);
 
-    char *saveptr = NULL;
-    char *tok     = strtok_r(dst_buf, sep, &saveptr);
-    while (tok && allowed_cnt < sizeof(allowed) / sizeof(allowed[0])) {
+    while (tok) {
         trims(tok, " []");
         if (tok[0] != '\0')
             allowed[allowed_cnt++] = tok;
@@ -622,12 +684,12 @@ intersect(char *dst, char *other, const char *sep)
                 size_t dst_len = strlen(dst);
                 size_t tok_len = strlen(tok);
                 if (!first_token) {
-                    if (dst_len + slen >= V_BUF_LEN)
+                    if (dst_len + slen >= max_vlen)
                         goto overflow;
                     strcat(dst, sep);
                     dst_len += slen;
                 }
-                if (dst_len + tok_len >= V_BUF_LEN)
+                if (dst_len + tok_len >= max_vlen)
                     goto overflow;
                 strcat(dst, tok);
                 first_token = false;
@@ -636,11 +698,17 @@ intersect(char *dst, char *other, const char *sep)
         }
         tok = strtok_r(NULL, sep, &saveptr);
     }
+    free(dst_buf);
+    free(other_buf);
+    free(allowed);
     return;
 
 overflow:
-    fprintf(stderr, "error: filter intersection exceeds value length (%d)\n",
-            V_BUF_LEN);
+    fprintf(stderr, "error: filter intersection exceeds value length (%zu)\n",
+            max_vlen);
+    free(dst_buf);
+    free(other_buf);
+    free(allowed);
     exit(EXIT_FAILURE);
 }
 
@@ -656,9 +724,11 @@ void
 process_block(int i, const int nvars, int *count, bool last)
 {
     pair_t *hook = NULL;
+
     if (i == nvars) {
-        char icount[V_BUF_LEN + 1] = {0};
-        snprintf(icount, V_BUF_LEN, "%d", *count);
+        char icount[V_MIN_LEN];
+        snprintf(icount, sizeof(icount), "%d", *count);
+
         remap(iteration_map, TMPL_ICOUNT, icount);
         remap(iteration_map, TMPL_ISLAST, last ? "true" : "false");
 
@@ -676,11 +746,19 @@ end:
         (*count)++;
         unmap(iteration_map, TMPL_ICOUNT);
         unmap(iteration_map, TMPL_ISLAST);
+
         return;
     }
-    pair_t *p           = template_map + i;
-    char val[V_BUF_LEN] = {0};
-    strcat(val, p->val);
+
+    pair_t *p = template_map + i;
+
+    char *val = calloc(max_vlen + 1, sizeof(char));
+    if (!val) {
+        perror("out of memory");
+        exit(EXIT_FAILURE);
+    }
+
+    strncat(val, p->val, max_vlen);
 
     const char *sep = OPTION(ITER_SEP);
     char *saveptr   = NULL;
@@ -693,7 +771,7 @@ end:
 
     if (oval != NULL) {
         /* if there are defined values (with -DVAR=VAL1;VAL2),
-         * discard all other values of tok and only use those. */
+        discard all other values of tok and only use those. */
         tok = strtok_r(oval, sep, &saveptr);
     } else if (fval != NULL) {
         intersect(fval, val, sep);
@@ -714,6 +792,8 @@ end:
         free(oval);
     if (fval != NULL)
         free(fval);
+
+    free(val);
 
     if (i == 0 && (hook = find(block_hooks, "final"))) {
         (void)process_block_line(hook->val);
@@ -910,7 +990,7 @@ main(int argc, char *argv[])
     debugf("vatomic generator\n");
     int c;
     char *k;
-    while ((c = getopt(argc, argv, "b:hisvVP:D:F:")) != -1) {
+    while ((c = getopt(argc, argv, "b:l:hisvVP:D:F:")) != -1) {
         switch (c) {
             case 'b': {
                 char *endptr      = NULL;
@@ -935,6 +1015,31 @@ main(int argc, char *argv[])
                 *k++ = '\0';
                 remap(filter_map, optarg, k);
                 break;
+            case 'l': {
+                char *endptr      = NULL;
+                errno             = 0;
+                unsigned long val = strtoul(optarg, &endptr, 10);
+                if (errno != 0 || endptr == optarg || *endptr != '\0' ||
+                    val == 0) {
+                    fprintf(stderr, "error: invalid maximum length '%s'\n",
+                            optarg);
+                    exit(EXIT_FAILURE);
+                }
+                if (val > ABSOLUTE_MAX_VLEN) {
+                    fprintf(stderr,
+                            "error: maximum length must be at max %lu\n",
+                            ABSOLUTE_MAX_VLEN);
+                    exit(EXIT_FAILURE);
+                }
+                if (val < V_MIN_LEN) {
+                    fprintf(stderr,
+                            "error: maximum length must be at least %u\n",
+                            (unsigned)V_MIN_LEN);
+                    exit(EXIT_FAILURE);
+                }
+                max_vlen = (size_t)val;
+                break;
+            }
             case 'P':
                 prefix = strdup(optarg);
                 break;
