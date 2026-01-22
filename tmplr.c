@@ -473,7 +473,6 @@ line_apply(char *line, const char *key, const char *val)
 
     const size_t vlen = strlen(val);
     const size_t klen = strlen(key);
-    const size_t slen = strlen(cur);
 
     const bool is_nl = strcmp(key, TMPL_NL) == 0;
     if (!is_nl)
@@ -483,13 +482,19 @@ line_apply(char *line, const char *key, const char *val)
     if (!is_nl)
         debugf("\tBEFORE: %s", line);
 
-    if (cur - line + vlen + slen > MAX_SLEN) {
+    /* prefix length */
+    const size_t prefix = (size_t)(cur - line);
+    /* tail length */
+    const size_t tlen = strlen(cur + klen) + 1;
+
+    if (prefix + vlen + tlen > MAX_SLEN) {
         fflush(stdout);
         fprintf(stderr, "error: cannot apply beyond line limit (%lu)\n",
                 MAX_SLEN);
         exit(EXIT_FAILURE);
     }
-    memmove(cur + vlen, cur + klen, slen);
+
+    memmove(cur + vlen, cur + klen, tlen);
     memcpy(cur, val, vlen);
     if (!is_nl)
         debugf("\tAFTER:  %s", line);
