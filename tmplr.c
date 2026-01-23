@@ -1079,6 +1079,11 @@ main(int argc, char *argv[])
                     "\t-b LINES      set maximum lines buffered per block "
                     "(default %zu)\n",
                     (size_t)MAX_BLEN);
+                printf(
+                    "\t-l CHARS      set maximum length of a single template "
+                    "value "
+                    "(default %zu)\n",
+                    (size_t)max_vlen);
                 printf("\t-i            read stdin\n");
                 printf("\t-P PREFIX     use PREFIX instead of $ prefix\n");
                 printf("\t-s            swap iterator and item separators\n");
