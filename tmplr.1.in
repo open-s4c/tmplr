@@ -55,6 +55,10 @@ iteration mapping substitution.
 Set the maximum number of buffered lines per template block. The default is
 100 lines, but larger blocks require more memory.
 .TP
+.BI \-l " chars"
+Set the maximum length (in characters) of a single template value. The default is
+256 characters with an absolute maximum of 4096 characters.
+.TP
 .B \-v
 Enable verbose logging to standard output.
 .TP
