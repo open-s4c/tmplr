@@ -973,11 +973,15 @@ process_fp(FILE *fp, const char *fn)
     if (line)
         free(line);
 }
+
 void
 process_file(const char *fn)
 {
-    FILE *fp = fopen(fn, "r+");
-    assert(fp);
+    FILE *fp = fopen(fn, "r");
+    if (!fp) {
+        perror(fn);
+        return;
+    }
     process_fp(fp, fn);
     fclose(fp);
 }
