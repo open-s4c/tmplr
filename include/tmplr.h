@@ -1,107 +1,155 @@
 /*
- * Copyright (C) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (C) 2025-2026 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: 0BSD
  *
- * tmplr headers
+ * tmplr library API header
  *
- * These macros expand to nothing so that tmplr commands can live inside C or
- * C++ sources without confusing the compiler or LSP tooling. See tmplr(1) for
- * the runtime behaviour; the notes below summarize the user-facing API.
+ * This file defines the public API for the tmplr library, which provides
+ * template processing functionality.
  */
 #ifndef TMPLR_H
 #define TMPLR_H
 
+#include <stddef.h>
+#include <stdio.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
- * Marks the beginning of a template block.
+ * Opaque context structure for tmplr operations
  *
- * Accepts a comma-separated list of key-value pairs, where each value may be a
- * single literal or a list in the form [[val1;val2;val3]]. tmplr iterates over
- * the cartesian product of the provided values and emits the block once per
- * combination. Example:
+ */
+typedef struct tmplr_ctx tmplr_ctx;
+
+/**
+ * Error codes returned by tmplr functions
  *
- * ```c
- * $_begin(KEY1 = VALUE1, KEY2 = [[VALUE2; VALUE3]]);
- * KEY1 = KEY2;
- * $_end;
- * ```
  */
-#define $_begin(...)
+typedef enum {
+    TMPLR_OK = 0,    /**< Success */
+    TMPLR_ERR_PARSE, /**< Parse error */
+    TMPLR_ERR_IO,    /**< IO error */
+    TMPLR_ERR_OOM,   /**< Out of memory */
+    TMPLR_ERR_LIMIT, /**< Limit exceeded */
+    TMPLR_ERR_USAGE  /**< Usage error */
+} tmplr_err;
 
 /**
- * Marks the end of a template block.
- */
-#define $_end
-
-/**
- * Registers content for a block hook.
+ * Configuration options for tmplr
  *
- * @param HOOK One of begin, end, or final.
+ */
+typedef struct {
+    size_t max_block_lines; /**< Maximum number of lines in a block */
+    size_t max_value_len;   /**< Maximum length of values */
+    const char *prefix;     /**< Prefix for template variables */
+    const char *item_sep;   /**< Separator for list items */
+    const char *iter_sep;   /**< Separator for iteration */
+    int verbose;            /**< Verbose output flag */
+} tmplr_opts;
+
+/**
+ * Function pointer type for output sink
  *
- * Hook values are treated as synthetic lines that go through the same mapping
- * logic as the rest of the block. begin/end hooks run for every iteration,
- * whereas final runs once after the block is completely processed.
+ * @param buf Buffer containing output data
+ * @param len Length of data in buffer
+ * @param user User-defined pointer
+ * @return 0 on success, non-zero on error
  */
-#define $_hook(HOOK, ...)
+typedef int (*tmplr_sink_fn)(const char *buf, size_t len, void *user);
 
 /**
- * Stops tmplr processing and output.
+ * Create a new tmplr context
  *
- * Until the matching $_unmute, all text is discarded and all tmplr command
- * ignored. A muted-block is useful to add includes that help LSP servers.
+ * @param opts Configuration options, or NULL for defaults
+ * @return Pointer to new context, or NULL on error
  */
-#define $_mute
+tmplr_ctx *tmplr_create(const tmplr_opts *opts);
 
 /**
- * Restarts tmplr processing output.
- */
-#define $_unmute
-
-/**
- * Adds or overrides a persistent mapping that applies outside of blocks.
+ * Destroy a tmplr context
  *
- * Can only be used when tmplr is not in the middle of a template block.
+ * @param ctx Context to destroy
  */
-#define $_map(K, ...)
+void tmplr_destroy(tmplr_ctx *ctx);
 
 /**
- * Skips template block iteration.
+ * Reset a tmplr context
  *
- * When invoked inside a block, the current iteration stops immediately and the
- * remaining lines of the block are discarded.
+ * @param ctx Context to reset
  */
-#define $_skip
+void tmplr_reset(tmplr_ctx *ctx);
 
 /**
- * Truncates the rest of the current line at the point of invocation.
- */
-#define $_kill
-
-/**
- * Removes everything emitted on the current line prior to the command.
- */
-#define $_undo
-
-/**
- * Deletes the rest of the current line from the template output.
- */
-#define $_dl
-
-/**
- * Inserts an explicit newline in the output.
- */
-#define $_nl
-
-/**
- * Aborts tmplr execution and exits with error code 1.
- */
-#define $_abort
-
-/**
- * Makes content uppercase.
+ * Set override values for keys
  *
- * Accepts either parentheses or a custom delimiter, e.g. $_upcase(KEY) or
- * $_upcase%literal%. Useful inside template blocks.
+ * @param ctx Context to operate on
+ * @param key Key to set overrides for
+ * @param values Comma-separated list of override values
+ * @return Error code
  */
-#define $_upcase(...)
+tmplr_err tmplr_set_override(tmplr_ctx *ctx, const char *key,
+                             const char *values);
+
+/**
+ * Set filter values for keys
+ *
+ * @param ctx Context to operate on
+ * @param key Key to set filters for
+ * @param values Comma-separated list of filter values
+ * @return Error code
+ */
+tmplr_err tmplr_set_filter(tmplr_ctx *ctx, const char *key, const char *values);
+
+/**
+ * Process input from a file pointer
+ *
+ * @param ctx Context to operate on
+ * @param in Input file pointer
+ * @param name Name of input (for error reporting)
+ * @param sink Output sink function
+ * @param sink_user User pointer passed to sink function
+ * @return Error code
+ */
+tmplr_err tmplr_process_fp(tmplr_ctx *ctx, FILE *in, const char *name,
+                           tmplr_sink_fn sink, void *sink_user);
+
+/**
+ * Process input from a file
+ *
+ * @param ctx Context to operate on
+ * @param path Path to input file
+ * @param sink Output sink function
+ * @param sink_user User pointer passed to sink function
+ * @return Error code
+ */
+tmplr_err tmplr_process_file(tmplr_ctx *ctx, const char *path,
+                             tmplr_sink_fn sink, void *sink_user);
+
+/**
+ * Process input from a string
+ *
+ * @param ctx Context to operate on
+ * @param input Input string
+ * @param len Length of input string
+ * @param sink Output sink function
+ * @param sink_user User pointer passed to sink function
+ * @return Error code
+ */
+tmplr_err tmplr_process_string(tmplr_ctx *ctx, const char *input, size_t len,
+                               tmplr_sink_fn sink, void *sink_user);
+
+/**
+ * Convert error code to string
+ *
+ * @param err Error code
+ * @return String representation of error
+ */
+const char *tmplr_strerror(tmplr_err err);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* TMPLR_H */

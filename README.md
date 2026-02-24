@@ -19,8 +19,23 @@ make
 sudo make PREFIX=/usr/local install    # optional
 ```
 
-`make install` drops the binary, man page, and `include/tmplr.h` under the
-chosen prefix. Set `DESTDIR` when packaging for a distro.
+`make install` drops the binary, static library (`libtmplr.a`), man page, and
+public headers (`tmplr.h`, `tmplr/macros.h`) under the chosen prefix. Set
+`DESTDIR` when packaging for a distro.
+
+## C library API
+
+`tmplr` also ships a static library interface in `include/tmplr.h`.
+
+```c
+#include <tmplr.h>
+
+tmplr_opts opts = {0};
+tmplr_ctx *ctx = tmplr_create(&opts);
+tmplr_set_override(ctx, "K", "v1;v2");
+tmplr_process_file(ctx, "input.in", NULL, NULL);
+tmplr_destroy(ctx);
+```
 
 For the complete CLI and directive reference, see the bundled man page:
 
