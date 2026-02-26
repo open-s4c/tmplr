@@ -523,7 +523,10 @@ line_add_nl(char *line)
 {
     const size_t len = strlen(line);
     if (line[len - 1] != '\n') {
-        assert(len + 1 < MAX_SLEN);
+        if (len + 1 >= MAX_SLEN) {
+            fprintf(stderr, "error: no space to add new line %zu\n", MAX_SLEN);
+            exit(EXIT_FAILURE);
+        }
         line[len]     = '\n';
         line[len + 1] = '\0';
     }
@@ -572,6 +575,11 @@ process_block_line(char *line)
     bool applied;
     char *cur;
 
+    if (strlen(line) >= MAX_SLEN) {
+        fprintf(stderr, "error: line length must be smaller than %zu\n",
+                MAX_SLEN);
+        exit(EXIT_FAILURE);
+    }
     char buf[MAX_SLEN] = {0};
     strcat(buf, line);
     line_add_nl(buf);
@@ -955,6 +963,9 @@ again:
             if (save_k >= max_block_lines)
                 return ERROR("too many lines in block");
 
+            if (strlen(line) >= MAX_SLEN) {
+                return ERROR("line too long");
+            }
             memcpy(save_block[save_k++], line, strlen(line) + 1);
             break;
         case BLOCK_END:
