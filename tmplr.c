@@ -1397,12 +1397,20 @@ main(int argc, char *argv[])
                 break;
             }
             case 'D':
-                k    = strstr(optarg, "=");
+                k = strstr(optarg, "=");
+                if (k == NULL) {
+                    fprintf(stderr, "error: -D requires KEY=VALUE format\n");
+                    exit(EXIT_FAILURE);
+                }
                 *k++ = '\0';
                 remap(override_map, optarg, k);
                 break;
             case 'F':
-                k    = strstr(optarg, "=");
+                k = strstr(optarg, "=");
+                if (k == NULL) {
+                    fprintf(stderr, "error: -F requires KEY=VALUE format\n");
+                    exit(EXIT_FAILURE);
+                }
                 *k++ = '\0';
                 remap(filter_map, optarg, k);
                 break;
