@@ -326,6 +326,12 @@ remap(pair_t *map, const char *key, const char *val)
     for (int i = 0; i < MAX_KEYS; i++) {
         pair_t *p = map + i;
         if (!p->key[0] || strcmp(p->key, key) == 0) {
+            if (strlen(key) >= sizeof(p->key)) {
+                fprintf(stderr, "error: key '%s' is too long (%zu > %zu)\n",
+                        key, strlen(key), sizeof(p->key) - 1);
+                exit(EXIT_FAILURE);
+            }
+
             memset(p->key, 0, sizeof(p->key));
             strncat(p->key, key, sizeof(p->key) - 1);
             trims(p->key, " \t");
@@ -350,6 +356,9 @@ remap(pair_t *map, const char *key, const char *val)
             return;
         }
     }
+
+    fprintf(stderr, "error: map is full, cannot insert key '%s'\n", key);
+    exit(EXIT_FAILURE);
 }
 
 pair_t *
