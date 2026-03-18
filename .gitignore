@@ -1,3 +1,5 @@
 version.h
-./tmplr
-tmplr.1
+tmplr
+*.d
+*.1
+*.3
