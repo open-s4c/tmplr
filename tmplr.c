@@ -498,6 +498,10 @@ again:
     values++;
 
     char key[K_BUF_LEN] = {0};
+    if (strlen(start) >= K_BUF_LEN) {
+        free(val);
+        return ERROR("key is too long");
+    }
     strncat(key, start, MAX_KLEN);
 
     /* clear the buffer to ensure proper NUL-termination and garbage data */
@@ -959,7 +963,9 @@ again:
                 for (char *e = NULL; (e = strstr(end + 1, ","), e && e != end);
                      end     = e)
                     ;
-                parse_template_map(line, end);
+                err = parse_template_map(line, end);
+                if (IS_ERROR(err))
+                    return err;
             }
             break;
 
